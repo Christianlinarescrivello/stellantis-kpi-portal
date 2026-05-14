@@ -222,22 +222,40 @@ tr:hover td{background:rgba(255,255,255,.015)}
   <div id="colector-content">
     <!-- TAB STATS -->
     <div class="col-page active" id="col-page-stats">
-      <div style="font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:10px" id="col-inv-fecha-txt"></div>
-      <div class="col-stat-grid">
-        <div class="col-stat"><div class="col-stat-val" style="color:var(--info)" id="cs-stock">0</div><div class="col-stat-lbl">Stock</div></div>
-        <div class="col-stat"><div class="col-stat-val" style="color:var(--ok)" id="cs-ok">0</div><div class="col-stat-lbl">OK</div></div>
-        <div class="col-stat"><div class="col-stat-val" style="color:var(--ko)" id="cs-ko">0</div><div class="col-stat-lbl">KO</div></div>
-        <div class="col-stat"><div class="col-stat-val" style="color:var(--accent)" id="cs-col">0</div><div class="col-stat-lbl">Colect.</div></div>
-        <div class="col-stat"><div class="col-stat-val" style="color:var(--warn)" id="cs-nos">0</div><div class="col-stat-lbl">Sin stock</div></div>
-        <div class="col-stat"><div class="col-stat-val" style="color:var(--muted2)" id="cs-ncol">0</div><div class="col-stat-lbl">Pendiente</div></div>
+      <!-- Inventario activo -->
+      <div id="col-inv-activo-box" style="display:none;background:rgba(200,164,86,.08);border:1px solid rgba(200,164,86,.25);border-radius:8px;padding:12px 14px;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase">INVENTARIO ACTIVO</div>
+            <div style="font-size:17px;font-weight:800;color:var(--accent);margin-top:2px" id="col-inv-activo-nombre">—</div>
+            <div style="font-size:11px;color:var(--muted2);margin-top:1px" id="col-inv-activo-fecha">—</div>
+          </div>
+          <button class="touch-btn" onclick="colCambiarInv()" style="padding:8px 12px;font-size:11px;flex-shrink:0">Cambiar</button>
+        </div>
       </div>
-      <div style="height:3px;background:var(--border);border-radius:2px;margin-bottom:16px"><div id="cs-bar" style="height:100%;background:var(--accent);border-radius:2px;width:0%;transition:width .5s"></div></div>
-      <div id="col-no-inv" style="text-align:center;padding:30px 0;display:none">
-        <div style="font-size:32px;margin-bottom:10px">&#9672;</div>
-        <div style="font-size:14px;color:var(--muted2)">Sin inventario activo</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">Pedile al administrador que cree uno</div>
+      <!-- Sin inventario -->
+      <div id="col-no-inv" style="text-align:center;padding:20px 0 10px">
+        <div style="font-size:13px;color:var(--warn);font-weight:700;margin-bottom:4px">Sin inventario cargado</div>
+        <div style="font-size:12px;color:var(--muted)">Selecciona uno de la lista</div>
       </div>
-      <div id="col-inv-list" style="display:flex;flex-direction:column;gap:8px"></div>
+      <!-- Stats -->
+      <div id="col-stats-wrap" style="display:none">
+        <div class="col-stat-grid">
+          <div class="col-stat"><div class="col-stat-val" style="color:var(--info)" id="cs-stock">0</div><div class="col-stat-lbl">Stock</div></div>
+          <div class="col-stat"><div class="col-stat-val" style="color:var(--ok)" id="cs-ok">0</div><div class="col-stat-lbl">OK</div></div>
+          <div class="col-stat"><div class="col-stat-val" style="color:var(--ko)" id="cs-ko">0</div><div class="col-stat-lbl">KO</div></div>
+          <div class="col-stat"><div class="col-stat-val" style="color:var(--accent)" id="cs-col">0</div><div class="col-stat-lbl">Colect.</div></div>
+          <div class="col-stat"><div class="col-stat-val" style="color:var(--warn)" id="cs-nos">0</div><div class="col-stat-lbl">Sin stock</div></div>
+          <div class="col-stat"><div class="col-stat-val" style="color:var(--muted2)" id="cs-ncol">0</div><div class="col-stat-lbl">Pendiente</div></div>
+        </div>
+        <div style="height:3px;background:var(--border);border-radius:2px;margin-bottom:16px"><div id="cs-bar" style="height:100%;background:var(--accent);border-radius:2px;width:0%;transition:width .5s"></div></div>
+      </div>
+      <!-- Lista inventarios -->
+      <div style="font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:8px" id="col-inv-list-title">INVENTARIOS DISPONIBLES</div>
+      <div id="col-inv-list" style="display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:12px;color:var(--muted);text-align:center;padding:16px">Cargando...</div>
+      </div>
+      <div id="col-inv-fecha-txt" style="display:none"></div>
     </div>
     <!-- TAB BUSCAR -->
     <div class="col-page" id="col-page-buscar">
@@ -1276,18 +1294,23 @@ function colTab(id){
 }
 
 function colRefresh(){
-  // actualizar datos colector
-  const nombre = document.getElementById('col-inv-nombre');
-  const fecha = document.getElementById('col-inv-fecha-txt');
-  if(S.invNombre){ nombre.textContent = S.invNombre; }
-  else { nombre.textContent = 'Sin inventario'; }
-  if(S.invFecha) fecha.textContent = S.invFecha;
+  document.getElementById('col-inv-nombre').textContent = S.invNombre || 'Sin inventario';
+  document.getElementById('col-operario-txt').textContent = S.operario || 'Toca para identificarte';
   colUpdateStats();
   colCargarInvList();
-  document.getElementById('col-operario-txt').textContent = S.operario || 'Toca para identificarte';
 }
 
 function colUpdateStats(){
+  const tieneInv = !!S.invId;
+  // Caja inventario activo
+  document.getElementById('col-inv-activo-box').style.display = tieneInv ? '' : 'none';
+  document.getElementById('col-no-inv').style.display = tieneInv ? 'none' : '';
+  document.getElementById('col-stats-wrap').style.display = tieneInv ? '' : 'none';
+  document.getElementById('col-inv-list-title').textContent = tieneInv ? 'OTROS INVENTARIOS' : 'INVENTARIOS DISPONIBLES';
+  if(tieneInv){
+    document.getElementById('col-inv-activo-nombre').textContent = S.invNombre;
+    document.getElementById('col-inv-activo-fecha').textContent = S.invFecha;
+  }
   const r=S.resultados, t=S.stock.length, col=r.filter(x=>x.ubicacionPlaya).length;
   document.getElementById('cs-stock').textContent = t;
   document.getElementById('cs-ok').textContent = r.filter(x=>x.estado==='OK').length;
@@ -1297,23 +1320,40 @@ function colUpdateStats(){
   document.getElementById('cs-ncol').textContent = t - col;
   const pct = t > 0 ? Math.round((col/t)*100) : 0;
   document.getElementById('cs-bar').style.width = pct+'%';
-  document.getElementById('col-no-inv').style.display = !S.invId ? '' : 'none';
-  document.getElementById('col-inv-list').style.display = !S.invId ? 'none' : '';
 }
 
 async function colCargarInvList(){
-  if(!S.isOnline || S.invId) return;
-  const {data} = await sb.from('inventarios').select('*').order('creado_en',{ascending:false}).limit(5);
-  if(!data||data.length===0) return;
-  document.getElementById('col-inv-list').innerHTML = data.map(inv=>`
-    <div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center">
-      <div><div style="font-weight:700;font-size:14px">${inv.nombre}</div><div style="font-size:11px;color:var(--muted2)">${inv.fecha}</div></div>
-      <button class="touch-btn primary" style="padding:8px 14px;font-size:12px" onclick="colAbrirInv('${inv.id}')">Abrir</button>
-    </div>`).join('');
+  const el = document.getElementById('col-inv-list');
+  if(!S.isOnline){ el.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px">Sin conexion — no se pueden listar inventarios</div>'; return; }
+  el.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px">Cargando...</div>';
+  const {data} = await sb.from('inventarios').select('*').order('creado_en',{ascending:false}).limit(10);
+  if(!data||data.length===0){ el.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px">Sin inventarios</div>'; return; }
+  el.innerHTML = data.map(inv=>{
+    const esActivo = inv.id === S.invId;
+    return `<div style="background:var(--card);border:1px solid ${esActivo?'var(--accent)':'var(--border)'};border-radius:6px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-weight:700;font-size:14px;color:${esActivo?'var(--accent)':'var(--text)'}">${inv.nombre}${esActivo?' ✓':''}</div>
+        <div style="font-size:11px;color:var(--muted2)">${inv.fecha}</div>
+      </div>
+      ${esActivo
+        ? '<span style="font-size:10px;color:var(--accent);font-weight:700;letter-spacing:1px">ACTIVO</span>'
+        : `<button class="touch-btn primary" style="padding:8px 14px;font-size:12px" onclick="colAbrirInv('${inv.id}')">Cargar</button>`}
+    </div>`;
+  }).join('');
 }
 
 async function colAbrirInv(id){
+  document.getElementById('col-inv-list').innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:16px">Cargando inventario...</div>';
   await cargarInventario(id);
+  colRefresh();
+  toast('Inventario cargado: '+S.invNombre,'ok');
+}
+
+function colCambiarInv(){
+  // Limpia el inventario activo y muestra lista
+  S.invId=null; S.invNombre=''; S.invFecha='';
+  S.stock=[]; S.colectas=[]; S.resultados=[];
+  localStorage.removeItem('st_inv_id');
   colRefresh();
 }
 
