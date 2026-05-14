@@ -939,7 +939,7 @@ async function init(){
   updateOfflineUI(); colUpdateOfflineUI();
   if(S.isOnline&&S.offlineQueue.length>0) syncOQ();
 }
-function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.getElementById('nav-'+id).classList.add('active');if(id==='resultados')renderResultados();if(id==='observaciones')renderObs();if(id==='produccion'){prodRenderTabla();}if(id==='parqueo'){pqFiltrar('');pqUpdateStats();}if(id==='dashboard')iniciarCampo();if(id==='buscador')setTimeout(()=>document.getElementById('buscar-inp').focus(),100);if(id==='lote')loteRenderCheck();}
+function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.getElementById('nav-'+id).classList.add('active');if(id==='resultados')renderResultados();if(id==='observaciones')renderObs();if(id==='produccion'){cargarProduccion().then(()=>prodRenderTabla());}if(id==='parqueo'){pqFiltrar('');pqUpdateStats();}if(id==='dashboard')iniciarCampo();if(id==='buscador')setTimeout(()=>document.getElementById('buscar-inp').focus(),100);if(id==='lote')loteRenderCheck();}
 function openModal(id){document.getElementById(id).classList.remove('hidden');}
 function closeModal(id){document.getElementById(id).classList.add('hidden');}
 function setOperario(){const v=document.getElementById('op-nombre').value.trim();if(!v)return;S.operario=v;localStorage.setItem('st_op',v);document.getElementById('tb-op').textContent=v;document.getElementById('col-operario-txt').textContent=v;closeModal('modal-operario');toast('Identificado: '+v);}
@@ -1219,7 +1219,8 @@ function toast(msg,type=''){const el=document.getElementById('toast');el.textCon
 // ═══════════════════════════════════════════════════════════
 // MÓDULO PRODUCCION
 // ═══════════════════════════════════════════════════════════
-let prodData = [];          // VINs de produccion cargados
+let prodData = [];          // VINs cargados para la tabla admin (paginado)
+let prodTotalCount = 0;    // total en Supabase sin bajar todo
 let prodUbicaciones = [];   // historial de ubicaciones
 let prodVinSel = null;      // VIN actualmente seleccionado
 let prodTipo = 'fisica';    // 'fisica' | 'lote'
@@ -1227,17 +1228,20 @@ let prodFiltroActual = 'TODOS';
 let prodBusquedaActual = '';
 
 async function cargarProduccion() {
-  if(!S.isOnline){ prodData=JSON.parse(localStorage.getItem('st_prod')||'[]'); prodUbicaciones=JSON.parse(localStorage.getItem('st_prod_ubic')||'[]'); prodRefreshBadge(); return; }
-  prodData = await paginarQuery('produccion','id,vin,previn,chass,ver,mer,esd,estado,cis,seq,archivo_origen,creado_en',{});
+  if(!S.isOnline){ prodRefreshBadge(); return; }
+  // Solo traer count y ubicaciones — NO bajar todos los VINs al cliente
+  // Los VINs se consultan puntualmente cuando el operador busca un chasis
+  const {count} = await sb.from('produccion').select('*', {count:'exact', head:true});
+  prodTotalCount = count || 0;
   prodUbicaciones = await paginarQuery('produccion_ubicaciones','id,vin,tipo_ubicacion,ubicacion,operario,notas,activa,creado_en',{});
-  localStorage.setItem('st_prod', JSON.stringify(prodData));
-  localStorage.setItem('st_prod_ubic', JSON.stringify(prodUbicaciones));
+  try { localStorage.setItem('st_prod_ubic', JSON.stringify(prodUbicaciones)); } catch(e){}
   prodRefreshBadge();
 }
 
 function prodRefreshBadge(){
-  document.getElementById('badge-prod').textContent = prodData.length;
-  document.getElementById('prod-total').textContent = prodData.length;
+  const total = prodTotalCount || prodData.length;
+  document.getElementById('badge-prod').textContent = total;
+  document.getElementById('prod-total').textContent = total;
 }
 
 async function importarProduccion(input){
@@ -1361,28 +1365,27 @@ async function importarProduccion(input){
 
 function handleDropProd(e){ e.preventDefault(); const f=e.dataTransfer.files[0]; if(!f)return; const fake={files:[f],value:''}; importarProduccion(fake); }
 
-// ── BUSCAR VIN en produccion ──
-function prodBuscarVin(val){
+// ── BUSCAR VIN en produccion — consulta directa a Supabase ──
+async function prodBuscarVin(val){
   const q = val.trim().toUpperCase();
   const el = document.getElementById('prod-vin-match');
   document.getElementById('prod-asignar-form').style.display='none';
   prodVinSel = null;
   if(q.length<4){ el.innerHTML=''; return; }
-  // Buscar por VIN completo, CHASS o últimos dígitos
-  const matches = prodData.filter(p=>{
-    const vin = p.vin.toUpperCase();
-    const chass = (p.chass||'').toUpperCase();
-    return vin.includes(q) || chass.includes(q) || vin.endsWith(q);
-  }).slice(0,8);
+  el.innerHTML=`<div style="font-size:12px;color:var(--muted2);padding:4px 0">Buscando...</div>`;
+  // Buscar en Supabase por CHASS (ilike) o fin del VIN
+  const {data} = await sb.from('produccion')
+    .select('id,vin,previn,chass,ver,esd,estado')
+    .or(`chass.ilike.%${q}%,vin.ilike.%${q}%`)
+    .limit(8);
+  const matches = data||[];
   if(matches.length===0){ el.innerHTML=`<div style="font-size:12px;color:var(--muted)">No encontrado en produccion</div>`; return; }
   el.innerHTML=`<div class="manual-suggestions">${matches.map(m=>{
     const ubic = prodUbicaciones.find(u=>u.vin===m.vin&&u.activa);
-    const chassTxt = m.chass ? ` · CHASS: ${m.chass}` : '';
-    const verTxt = m.ver ? ` · ${m.ver}` : '';
     return `<div class="manual-sug-item" onclick="prodSelVin('${m.vin}')">
       <div>
         <span class="mono" style="font-size:12px">${hv(m.vin,q)}</span>
-        <div style="font-size:10px;color:var(--muted)">${chassTxt}${verTxt}</div>
+        <div style="font-size:10px;color:var(--muted)">CHASS: ${m.chass||''}${m.ver?' · '+m.ver:''}${m.esd?' · ESD: '+m.esd:''}</div>
       </div>
       <span style="font-size:11px;color:${ubic?'var(--ok)':'var(--muted2)'}">${ubic?ubic.ubicacion:'Sin ubicar'}</span>
     </div>`;
@@ -1490,15 +1493,25 @@ function prodSetFiltro(f, btn){
   prodRenderTabla();
 }
 
-function prodFiltrar(v){ prodBusquedaActual=v.toUpperCase(); prodRenderTabla(); }
+function prodFiltrar(v){ prodBusquedaActual=(v||'').toUpperCase(); prodRenderTabla(); }
 
-function prodRenderTabla(){
-  let data = [...prodData];
-  // join con ubicacion activa
-  data = data.map(p=>({...p, _ubic: prodUbicaciones.find(u=>u.vin===p.vin&&u.activa)||null}));
-  if(prodFiltroActual==='CON_UBIC') data=data.filter(p=>p._ubic);
-  if(prodFiltroActual==='SIN_UBIC') data=data.filter(p=>!p._ubic);
-  if(prodBusquedaActual) data=data.filter(p=>p.vin.includes(prodBusquedaActual));
+async function prodRenderTabla(){
+  if(!S.isOnline){ document.getElementById('prod-tbody').innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Sin conexion</td></tr>'; return; }
+  // Cargar desde Supabase con filtros
+  let q = sb.from('produccion').select('id,vin,previn,chass,ver,esd,estado,archivo_origen,creado_en');
+  if(prodBusquedaActual) q=q.or(`vin.ilike.%${prodBusquedaActual}%,chass.ilike.%${prodBusquedaActual}%`);
+  if(prodFiltroActual==='CON_UBIC'){
+    const vinsConUbic=[...new Set(prodUbicaciones.filter(u=>u.activa).map(u=>u.vin))];
+    if(vinsConUbic.length) q=q.in('vin',vinsConUbic); else {document.getElementById('prod-tbody').innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Sin resultados</td></tr>';return;}
+  }
+  if(prodFiltroActual==='SIN_UBIC'){
+    const vinsConUbic=[...new Set(prodUbicaciones.filter(u=>u.activa).map(u=>u.vin))];
+    if(vinsConUbic.length) q=q.not('vin','in',`(${vinsConUbic.map(v=>`"${v}"`).join(',')})`);
+  }
+  q=q.limit(300);
+  const {data} = await q;
+  let datos = data||[];
+  datos = datos.map(p=>({...p, _ubic: prodUbicaciones.find(u=>u.vin===p.vin&&u.activa)||null}));
   const MAX=300;
   document.getElementById('prod-tbody').innerHTML = data.slice(0,MAX).map(p=>{
     const hist = prodUbicaciones.filter(u=>u.vin===p.vin).length;
@@ -1724,7 +1737,7 @@ async function cargarParqueos(){
   }
   pqData = await paginarQuery('parqueos','*',{});
   pqData.sort((a,b)=>new Date(b.creado_en)-new Date(a.creado_en));
-  localStorage.setItem('st_pq', JSON.stringify(pqData));
+  try { localStorage.setItem('st_pq', JSON.stringify(pqData)); } catch(e){}
   pqRefreshBadge();
 }
 
@@ -1762,7 +1775,7 @@ function pqUpdateStats(){
 }
 
 // ── BUSCAR ──
-function pqBuscar(val){
+async function pqBuscar(val){
   const q = val.trim().toUpperCase();
   const el = document.getElementById('pq-buscar-results');
   document.getElementById('pq-sel-box').style.display='none';
@@ -1774,12 +1787,15 @@ function pqBuscar(val){
     s.vin.toUpperCase().includes(q) || s.vin.toUpperCase().endsWith(q)
   ).slice(0,5);
 
-  // Buscar en produccion
-  const prodMatches = prodData.filter(p=>
-    p.vin.toUpperCase().includes(q) ||
-    (p.chass||'').toUpperCase().includes(q) ||
-    p.vin.toUpperCase().endsWith(q)
-  ).slice(0,5);
+  // Buscar en produccion — consulta Supabase directo
+  let prodMatches = [];
+  if(S.isOnline){
+    const {data:pd} = await sb.from('produccion')
+      .select('vin,previn,chass,ver,esd')
+      .or(`chass.ilike.%${q}%,vin.ilike.%${q}%`)
+      .limit(5);
+    prodMatches = pd||[];
+  }
 
   // Combinar sin duplicados
   const vinsMostrados = new Set();
@@ -2061,13 +2077,14 @@ function pqExportar(){
 // ── COLECTOR PARQUEO (mobile) ──
 let colPqSel=null, colPqTipoActual='fisica';
 
-function pqBuscarCol(val){
+async function pqBuscarCol(val){
   const q=val.trim().toUpperCase();
   const el=document.getElementById('col-pq-results');
   document.getElementById('col-pq-form').style.display='none'; colPqSel=null;
   if(q.length<4){el.innerHTML='';return;}
   const sm=S.stock.filter(s=>s.vin.toUpperCase().includes(q)||s.vin.endsWith(q)).slice(0,4);
-  const pm=prodData.filter(p=>p.vin.toUpperCase().includes(q)||(p.chass||'').includes(q)||p.vin.endsWith(q)).slice(0,4);
+  let pm=[];
+  if(S.isOnline){const{data:cpd}=await sb.from('produccion').select('vin,previn,chass,ver,esd').or(`chass.ilike.%${q}%,vin.ilike.%${q}%`).limit(4);pm=cpd||[];}
   const items=[]; const seen=new Set();
   sm.forEach(s=>{if(!seen.has(s.vin)){seen.add(s.vin);items.push({vin:s.vin,chass:s.vin.slice(-7),ver:'',fuente:'stock',boxatura:s.boxatura});}});
   pm.forEach(p=>{if(!seen.has(p.vin)){seen.add(p.vin);items.push({vin:p.vin,chass:p.chass||p.vin.slice(-7),ver:p.ver||'',fuente:'produccion'});}});
