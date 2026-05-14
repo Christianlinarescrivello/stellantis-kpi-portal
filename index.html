@@ -243,7 +243,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
       <span class="rol-badge rol-colector">COLECTOR</span>
-          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v2.3</span>
+          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v2.4</span>
       <div style="font-size:11px;color:var(--muted2)" id="col-operario-txt" onclick="openModal('modal-operario')" style="cursor:pointer">Toca para identificarte</div>
     </div>
   </div>
@@ -363,6 +363,12 @@ tr:hover td{background:rgba(255,255,255,.015)}
         <input id="col-sc-inp" class="inp touch-inp inp-mono" placeholder="Escanear VIN..." oninput="colScInput(this.value)" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" style="margin-top:10px">
         <div id="col-sc-result" style="display:none" class="touch-result"></div>
       </div>
+      <!-- Botón Esta OK — aparece solo cuando hay VIN esperado -->
+      <div id="col-esta-ok-wrap" style="display:none;margin-top:10px">
+        <button class="touch-btn ok" onclick="colScEstaOK()" style="width:100%;padding:18px;font-size:20px;font-weight:800;letter-spacing:2px;border-radius:8px">
+          &#10003; ESTA OK
+        </button>
+      </div>
       <div class="touch-btns">
         <button class="touch-btn" onclick="openManualModal('col-scanner')">Manual</button>
         <button class="touch-btn ok" onclick="colScVacioOK()">Vacio OK</button>
@@ -434,7 +440,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     <div class="tb-right">
       <div class="tb-op" id="tb-op" onclick="openModal('modal-operario')">Sin identificar</div>
       <span class="rol-badge rol-admin" id="tb-rol-badge" style="display:none">ADMIN</span>
-      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v2.3</span>
+      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v2.4</span>
       <button class="theme-toggle" onclick="toggleTheme()" title="Modo claro/oscuro" id="theme-btn">&#9788;</button>
       <button class="btn btn-secondary btn-sm" id="btn-qr" onclick="openQRModal()" style="display:none" title="QR de acceso para colectores">QR</button>
       <button class="btn btn-secondary btn-sm" id="btn-pdf" onclick="generarPDF()" style="display:none">PDF</button>
@@ -670,6 +676,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
             <div class="nav-btns">
               <button class="dir-btn" id="btn-prev" onclick="scMove(-1)">Anterior</button>
               <button class="btn btn-secondary btn-sm" onclick="openManualModal('scanner')">Manual</button>
+              <button class="btn btn-ok btn-sm" id="btn-esta-ok" onclick="scEstaOK()" style="display:none;font-size:14px;padding:6px 16px">&#10003; Esta OK</button>
               <button class="btn btn-secondary btn-sm" onclick="scVacioOK()">Vacio OK</button>
               <button class="btn btn-secondary btn-sm" onclick="scSaltar()">Saltar</button>
               <button class="dir-btn" id="btn-next" onclick="scMove(1)">Siguiente</button>
@@ -1213,6 +1220,8 @@ function scRender(){
   document.getElementById('sc-ubicacion').textContent=ubic;document.getElementById('sc-tipo-txt').textContent=`${SECTORES[S.scSector]?.tipo} - Sector ${S.scSector} - Calle ${S.scCalle}`;
   const si=S.stock.find(s=>s.boxatura===ubic);const expEl=document.getElementById('sc-vin-exp');
   if(si){expEl.textContent='...'+si.vin.slice(-7);expEl.style.color='var(--text)';}else{expEl.textContent='VACIO';expEl.style.color='var(--muted)';}
+  // Mostrar/ocultar botón "Esta OK" — solo si hay VIN esperado
+  const btnOk=document.getElementById('btn-esta-ok');if(btnOk)btnOk.style.display=si?'':'none';
   const pv=S.validFijas.find(v=>v.ubicacion===ubic);if(pv)scMostrarResultado(pv.resultado);else scLimpiarResultado();
   const t=S.scBoxes.length,pct=Math.round((S.scIdx/t)*100);
   document.getElementById('sc-progress-txt').textContent=`${S.scIdx+1} / ${t}`;document.getElementById('sc-pct').textContent=`${pct}%`;document.getElementById('sc-bar').style.width=pct+'%';
@@ -1228,6 +1237,16 @@ function scProcesarVin(scaneado){
   const ubic=document.getElementById('sc-ubicacion').textContent;const si=S.stock.find(s=>s.boxatura===ubic);const ve=si?.vin||null;
   let r;if(!ve)r='INESPERADO';else if(scaneado===ve||scaneado===ve.slice(-7))r='COINCIDE';else r='OTRO_VIN';
   guardarValidFija({ubicacion:ubic,vin_esperado:ve,vin_encontrado:scaneado,resultado:r});actualizarSesion(r);scMostrarResultado(r);setTimeout(()=>scMove(1),1200);
+}
+function scEstaOK(){
+  // Confirma que el auto esperado está presente y correcto, sin escanear
+  const ubic=document.getElementById('sc-ubicacion').textContent;
+  const si=S.stock.find(s=>s.boxatura===ubic);
+  if(!si) return; // no debería pasar (botón oculto si no hay VIN esperado)
+  guardarValidFija({ubicacion:ubic,vin_esperado:si.vin,vin_encontrado:si.vin,resultado:'COINCIDE'});
+  actualizarSesion('COINCIDE');
+  scMostrarResultado('COINCIDE');
+  setTimeout(()=>scMove(1),700);
 }
 function scVacioOK(){const ubic=document.getElementById('sc-ubicacion').textContent;const si=S.stock.find(s=>s.boxatura===ubic);const r=si?'VACIO_INESPERADO':'VACIO_OK';guardarValidFija({ubicacion:ubic,vin_esperado:si?.vin||null,vin_encontrado:null,resultado:r});actualizarSesion(r);scMostrarResultado(r);setTimeout(()=>scMove(1),800);}
 function scSaltar(){const ubic=document.getElementById('sc-ubicacion').textContent;const si=S.stock.find(s=>s.boxatura===ubic);guardarValidFija({ubicacion:ubic,vin_esperado:si?.vin||null,vin_encontrado:null,resultado:'NO_VERIFICADO'});scMove(1);}
@@ -2537,6 +2556,8 @@ function colScRender(){
   const expEl = document.getElementById('col-sc-exp');
   if(si){ expEl.textContent='...'+si.vin.slice(-7); expEl.style.color='var(--text)'; }
   else{ expEl.textContent='VACÍO'; expEl.style.color='var(--muted)'; }
+  // Mostrar/ocultar botón "Esta OK"
+  const eow=document.getElementById('col-esta-ok-wrap');if(eow)eow.style.display=si?'':'none';
   const pv = S.validFijas.find(v=>v.ubicacion===ubic);
   if(pv) colScMostrarResultado(pv.resultado); else colScLimpiarResultado();
   const t=colSc.boxes.length;
@@ -2566,6 +2587,15 @@ function colScProcesarVin(scaneado){
   setTimeout(()=>colScMove(1),1200);
 }
 
+function colScEstaOK(){
+  const ubic=document.getElementById('col-sc-ubic').textContent;
+  const si=S.stock.find(s=>s.boxatura===ubic);
+  if(!si) return;
+  guardarValidFija({ubicacion:ubic,vin_esperado:si.vin,vin_encontrado:si.vin,resultado:'COINCIDE'});
+  colActualizarSesion('COINCIDE');
+  colScMostrarResultado('COINCIDE');
+  setTimeout(()=>colScMove(1),700);
+}
 function colScVacioOK(){
   const ubic = document.getElementById('col-sc-ubic').textContent;
   const si = S.stock.find(s=>s.boxatura===ubic); const r=si?'VACIO_INESPERADO':'VACIO_OK';
