@@ -204,7 +204,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
       <span class="rol-badge rol-colector">COLECTOR</span>
-          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v1.9</span>
+          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v2.0</span>
       <div style="font-size:11px;color:var(--muted2)" id="col-operario-txt" onclick="openModal('modal-operario')" style="cursor:pointer">Toca para identificarte</div>
     </div>
   </div>
@@ -395,7 +395,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     <div class="tb-right">
       <div class="tb-op" id="tb-op" onclick="openModal('modal-operario')">Sin identificar</div>
       <span class="rol-badge rol-admin" id="tb-rol-badge" style="display:none">ADMIN</span>
-      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v1.9</span>
+      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v2.0</span>
       <button class="btn btn-secondary btn-sm" id="btn-pdf" onclick="generarPDF()" style="display:none">PDF</button>
       <button class="btn btn-primary btn-sm" onclick="openModal('modal-inv')">+ Inventario</button>
     </div>
@@ -1257,49 +1257,72 @@ async function importarProduccion(input){
     status.style.display='';
     status.innerHTML=`<div style="font-size:12px;color:var(--muted2)">Leyendo archivo...</div>`;
 
-    // Leer todo raw:true + cellDates para preservar tipos nativos
-    const dataMatrix = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:true, cellDates:true});
+    // Leer la hoja como array usando decode_range para forzar desde A1
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+    range.s = {r:0, c:0}; // forzar inicio en fila 0 columna 0
+    const dataMatrix = XLSX.utils.sheet_to_json(ws, {
+      header:1, defval:'', raw:true, cellDates:true,
+      range: range
+    });
+
+    console.log('Total filas leidas:', dataMatrix.length);
+    console.log('Fila 0 raw:', JSON.stringify(dataMatrix[0]).slice(0,150));
+    console.log('Fila 1 raw:', JSON.stringify(dataMatrix[1]).slice(0,150));
+
     if(dataMatrix.length < 2){ toast('Archivo vacio','warn'); return; }
 
-    // Encontrar fila de headers: la primera fila donde la MAYORIA de celdas son strings cortos
-    // En CIS: fila 1 tiene CIS, CHECK_DIGIT, ORD... todos strings
-    // Fila 2 tiene 8292278, 2, 604189489... números
-    let headerIdx = 0;
-    for(let i=0; i<Math.min(5, dataMatrix.length); i++){
-      const row = dataMatrix[i];
-      const stringCells = row.filter(c=>typeof c === 'string' && c.trim().length > 0 && c.trim().length < 30);
-      const numCells = row.filter(c=>typeof c === 'number');
-      // Si más de la mitad son strings cortos → es la fila de headers
-      if(stringCells.length > row.length * 0.5 && stringCells.length > numCells.length){
-        headerIdx = i; break;
+    // La fila de headers es la que tiene strings que coinciden con nombres de columnas CIS conocidos
+    const CIS_COLS = ['CIS','CHASS','PREVIN','VER','MER','ESD','SEQ','VIN'];
+    let headerIdx = -1;
+    for(let i=0; i<Math.min(10, dataMatrix.length); i++){
+      const cells = dataMatrix[i].map(c=>String(c||'').trim().toUpperCase());
+      const matches = cells.filter(c=>CIS_COLS.includes(c));
+      if(matches.length >= 2){ headerIdx = i; break; }
+    }
+
+    // Si no encontró por nombres CIS, buscar cualquier fila con mayoria de strings
+    if(headerIdx < 0){
+      for(let i=0; i<Math.min(10, dataMatrix.length); i++){
+        const row = dataMatrix[i];
+        const strings = row.filter(c=>typeof c==='string' && c.trim().length>0 && c.trim().length<40);
+        if(strings.length > row.length * 0.4){ headerIdx = i; break; }
       }
     }
+
+    if(headerIdx < 0){ headerIdx = 0; } // fallback
 
     const headerRow = dataMatrix[headerIdx].map(h=>String(h||'').trim());
     const headerSet = headerRow.map(h=>h.toUpperCase());
     const esCIS = headerSet.includes('PREVIN') && headerSet.includes('CHASS');
-    console.log('headerIdx:', headerIdx, '| Headers:', headerRow.slice(0,6).join(', '));
+    console.log('headerIdx elegido:', headerIdx);
+    console.log('headerRow:', headerRow.slice(0,8).join(' | '));
     console.log('esCIS:', esCIS);
 
     if(!esCIS && !headerSet.includes('VIN')){
-      // Mostrar qué encontró para debug
-      status.innerHTML=`<div style="padding:8px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:4px;font-size:12px;color:var(--ko)">No se encontraron columnas VIN/PREVIN+CHASS. Columnas detectadas: ${headerRow.slice(0,8).join(', ')}</div>`;
+      status.innerHTML=`<div style="padding:8px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:4px;font-size:12px;color:var(--ko)">
+        No se encontraron columnas PREVIN+CHASS ni VIN.<br>
+        Fila 0: ${dataMatrix[0].slice(0,6).map(c=>String(c||'')).join(', ')}<br>
+        Fila 1: ${dataMatrix[1].slice(0,6).map(c=>String(c||'')).join(', ')}
+      </div>`;
       return;
     }
 
-    // Armar objetos: headers como keys, valores tipados
+    // Armar objetos con los headers detectados
     const rows = dataMatrix.slice(headerIdx+1).map(arr=>{
       const obj={};
-      headerRow.forEach((h,i)=>{ if(h) obj[h]=arr[i]; });
+      headerRow.forEach((h,i)=>{ if(h) obj[h] = arr[i]; });
       return obj;
     }).filter(r=>{
-      if(esCIS) return typeof r['PREVIN']==='string' && r['PREVIN'].trim().length>=5
-                    && typeof r['CHASS']==='string'  && r['CHASS'].trim().length>=4;
+      if(esCIS){
+        const pre = String(r['PREVIN']||'').trim();
+        const ch  = String(r['CHASS']||'').trim();
+        return pre.length >= 5 && ch.length >= 4;
+      }
       return Object.values(r).some(v=>v!==''&&v!==null&&v!==undefined);
     });
 
     if(!rows.length){ toast('Sin filas de datos validos','warn'); return; }
-    console.log('Filas OK:', rows.length, '| PREVIN[0]:', rows[0]['PREVIN'], '| CHASS[0]:', rows[0]['CHASS']);
+    console.log('Filas validas:', rows.length, '| PREVIN[0]:', rows[0]['PREVIN'], '| CHASS[0]:', rows[0]['CHASS']);
 
     let parsed;
     if(esCIS){
