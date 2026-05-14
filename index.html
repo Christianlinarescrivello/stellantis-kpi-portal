@@ -218,6 +218,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     <div class="col-tab" onclick="colTab('buscar')" id="col-tab-buscar">&#9906; Buscar</div>
     <div class="col-tab" onclick="colTab('lote')" id="col-tab-lote">&#8862; Lote</div>
     <div class="col-tab" onclick="colTab('fija')" id="col-tab-fija">&#9783; Fija</div>
+    <div class="col-tab" onclick="colTab('parqueo')" id="col-tab-parqueo">&#9646; Parqueo</div>
   </div>
   <div id="colector-content">
     <!-- TAB STATS -->
@@ -340,6 +341,44 @@ tr:hover td{background:rgba(255,255,255,.015)}
         <div style="background:var(--card);border:1px solid var(--border);border-radius:5px;padding:8px"><div style="font-size:20px;font-weight:800;color:var(--info)" id="col-ses-vac">0</div><div style="font-size:9px;color:var(--muted)">VACIOS</div></div>
       </div>
     </div>
+    <!-- COLECTOR PARQUEO TAB -->
+    <div class="col-page" id="col-page-parqueo">
+      <div style="font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:10px">REGISTRAR PARQUEO</div>
+      <input id="col-pq-inp" class="inp inp-mono" placeholder="Ultimos 6 digitos o VIN..." 
+        style="font-size:18px;padding:14px;margin-bottom:10px" 
+        oninput="pqBuscarCol(this.value)" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false">
+      <div id="col-pq-results" style="margin-bottom:10px"></div>
+      <div id="col-pq-form" style="display:none">
+        <div style="background:rgba(200,164,86,.08);border:1px solid rgba(200,164,86,.2);border-radius:6px;padding:12px;margin-bottom:12px">
+          <div style="font-size:9px;color:var(--muted);letter-spacing:2px">VEHICULO</div>
+          <div id="col-pq-vin" class="mono" style="font-size:16px;font-weight:800;color:var(--accent);margin-top:2px"></div>
+          <div id="col-pq-info" style="font-size:11px;color:var(--muted2);margin-top:2px"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+          <button id="col-pq-tipo-fisica" class="touch-btn primary" onclick="colPqSetTipo('fisica')">Fisica</button>
+          <button id="col-pq-tipo-lote" class="touch-btn" onclick="colPqSetTipo('lote')">Lote</button>
+        </div>
+        <div id="col-pq-fisica" style="margin-bottom:10px">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px">
+            <select id="col-pq-sector" class="sel" onchange="colPqCalles()"><option value="A">A</option><option value="B">B</option><option value="D">D</option><option value="G">G</option><option value="L">L</option></select>
+            <select id="col-pq-calle" class="sel" onchange="colPqBoxes()"></select>
+            <select id="col-pq-box" class="sel" onchange="colPqPreview()"></select>
+          </div>
+          <div style="text-align:center;font-size:32px;font-weight:800;letter-spacing:4px;color:var(--accent);font-family:var(--mono);padding:10px;background:#0a0a16;border-radius:6px" id="col-pq-preview">A001001</div>
+        </div>
+        <div id="col-pq-lote" style="display:none;margin-bottom:10px">
+          <input id="col-pq-lote-inp" class="inp" placeholder="Lote (PRE8, K5, L 1 23...)" 
+            autocomplete="off" style="font-size:20px;font-weight:800;letter-spacing:3px;text-transform:uppercase" 
+            oninput="colPqPreviewLote(this.value)">
+          <div id="col-pq-lote-prev" style="font-size:13px;color:var(--muted2);margin-top:5px"></div>
+        </div>
+        <input id="col-pq-notas" class="inp" placeholder="Notas (opcional)" style="margin-bottom:12px" autocomplete="off">
+        <div style="display:flex;gap:8px">
+          <button class="touch-btn" onclick="colPqCancelar()" style="flex:1">Cancelar</button>
+          <button class="touch-btn ok" onclick="colPqGuardar()" style="flex:2;padding:16px;font-size:15px">Guardar Parqueo</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -374,6 +413,8 @@ tr:hover td{background:rgba(255,255,255,.015)}
       <div class="nav-item disabled" onclick="showPage('scanner')" id="nav-scanner"><span class="nav-icon">&#8862;</span> Playa Fija</div>
       <div class="nav-item disabled" onclick="showPage('resultados')" id="nav-resultados"><span class="nav-icon">&#8811;</span> Resultados<span class="nav-badge red" id="badge-ko" style="display:none">0</span></div>
       <div class="nav-item disabled" onclick="showPage('observaciones')" id="nav-observaciones"><span class="nav-icon">&#9998;</span> Observaciones<span class="nav-badge" id="badge-obs">0</span></div>
+      <div class="nav-section">Parqueo</div>
+      <div class="nav-item" onclick="showPage('parqueo')" id="nav-parqueo"><span class="nav-icon">&#9646;</span> Parqueo<span class="nav-badge amber" id="badge-parqueo" style="display:none">0</span></div>
       <div class="nav-section">Produccion</div>
       <div class="nav-item" onclick="showPage('produccion')" id="nav-produccion"><span class="nav-icon">&#9881;</span> Produccion<span class="nav-badge" id="badge-prod">0</span></div>
       <div class="nav-section">Tiempo Real</div>
@@ -601,6 +642,139 @@ tr:hover td{background:rgba(255,255,255,.015)}
         </div>
       </div>
 
+      <!-- PARQUEO -->
+      <div class="page" id="page-parqueo">
+        <div class="page-title">Parqueo</div>
+        <div class="page-sub">Registro de ubicaciones asignadas por operadores en campo</div>
+        <div class="grid2" style="margin-bottom:14px">
+          <!-- Panel operador: buscar y asignar -->
+          <div class="card">
+            <div class="card-title">Asignar ubicacion</div>
+            <div style="margin-bottom:10px">
+              <label class="lbl">Buscar chasis (ultimos 6 digitos o VIN completo)</label>
+              <input id="pq-buscar-inp" class="inp inp-mono" placeholder="Ej: 513241..." 
+                oninput="pqBuscar(this.value)" autocomplete="off" autocorrect="off" 
+                autocapitalize="characters" spellcheck="false" style="font-size:18px;letter-spacing:2px">
+            </div>
+            <div id="pq-buscar-results" style="margin-bottom:10px"></div>
+            <!-- Vehiculo seleccionado -->
+            <div id="pq-sel-box" style="display:none">
+              <div style="background:rgba(200,164,86,.07);border:1px solid rgba(200,164,86,.2);border-radius:6px;padding:12px;margin-bottom:12px">
+                <div style="font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:4px">VEHICULO SELECCIONADO</div>
+                <div id="pq-sel-vin" class="mono" style="font-size:15px;font-weight:800;letter-spacing:2px;color:var(--accent)"></div>
+                <div style="display:flex;gap:10px;margin-top:4px;flex-wrap:wrap">
+                  <span id="pq-sel-chass" style="font-size:11px;color:var(--muted2)"></span>
+                  <span id="pq-sel-ver" style="font-size:11px;color:var(--muted2)"></span>
+                  <span id="pq-sel-fuente" class="badge b-muted" style="font-size:10px"></span>
+                </div>
+              </div>
+              <!-- Tipo ubicacion -->
+              <div style="margin-bottom:10px">
+                <label class="lbl">Tipo de ubicacion</label>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  <button id="pq-tipo-fisica" class="btn btn-primary btn-sm" style="justify-content:center" onclick="pqSetTipo('fisica')">Fisica (A001001)</button>
+                  <button id="pq-tipo-lote" class="btn btn-secondary btn-sm" style="justify-content:center" onclick="pqSetTipo('lote')">Lote (PRE8)</button>
+                </div>
+              </div>
+              <!-- Ubicacion fisica -->
+              <div id="pq-fisica-wrap" style="margin-bottom:10px">
+                <label class="lbl">Sector / Calle / Box</label>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px">
+                  <select id="pq-sector" class="sel" onchange="pqUpdateCalles()">
+                    <option value="A">A</option><option value="B">B</option>
+                    <option value="D">D</option><option value="G">G</option><option value="L">L</option>
+                  </select>
+                  <select id="pq-calle" class="sel" onchange="pqUpdateBoxes()"></select>
+                  <select id="pq-box" class="sel" onchange="pqUpdatePreview()"></select>
+                </div>
+                <div style="text-align:center;font-size:28px;font-weight:800;letter-spacing:4px;color:var(--accent);font-family:var(--mono);padding:8px;background:#0a0a16;border-radius:5px" id="pq-ubic-preview">A001001</div>
+              </div>
+              <!-- Ubicacion lote -->
+              <div id="pq-lote-wrap" style="display:none;margin-bottom:10px">
+                <label class="lbl">Lote o sector (ej: PRE8, K5, L 1 23)</label>
+                <input id="pq-lote-inp" class="inp" placeholder="Ej: PRE8 / K5 / L 1 23..." 
+                  autocomplete="off" style="font-size:20px;font-weight:800;letter-spacing:3px;text-transform:uppercase" 
+                  oninput="pqPreviewLote(this.value)">
+                <div id="pq-lote-preview" style="font-size:13px;color:var(--muted2);margin-top:5px;min-height:18px"></div>
+              </div>
+              <!-- Notas -->
+              <div style="margin-bottom:12px">
+                <label class="lbl">Notas (opcional)</label>
+                <input id="pq-notas" class="inp" placeholder="Observacion..." autocomplete="off">
+              </div>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-secondary btn-sm" onclick="pqCancelar()">Cancelar</button>
+                <button class="btn btn-primary" style="flex:1;font-size:15px;padding:10px" onclick="pqGuardar()">Guardar Parqueo</button>
+              </div>
+            </div>
+          </div>
+          <!-- Stats rapidos -->
+          <div>
+            <div class="card">
+              <div class="card-title">Estado del dia</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center">
+                <div style="background:#0a0a16;border:1px solid var(--border);border-radius:5px;padding:12px">
+                  <div style="font-size:28px;font-weight:800;color:var(--warn);font-family:var(--mono)" id="pq-stat-pend">0</div>
+                  <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:3px">PENDIENTE</div>
+                </div>
+                <div style="background:#0a0a16;border:1px solid var(--border);border-radius:5px;padding:12px">
+                  <div style="font-size:28px;font-weight:800;color:var(--ok);font-family:var(--mono)" id="pq-stat-park">0</div>
+                  <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:3px">PARQUEADO</div>
+                </div>
+                <div style="background:#0a0a16;border:1px solid var(--border);border-radius:5px;padding:12px">
+                  <div style="font-size:28px;font-weight:800;color:var(--info);font-family:var(--mono)" id="pq-stat-total">0</div>
+                  <div style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:3px">TOTAL HOY</div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title">Ultimos parqueos</div>
+              <div id="pq-recientes" style="display:flex;flex-direction:column;gap:5px;max-height:240px;overflow-y:auto">
+                <div style="font-size:12px;color:var(--muted)">Sin registros aun</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Tabla administrativa -->
+        <div class="card" style="padding:0">
+          <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <input id="pq-search" class="inp" style="max-width:220px" placeholder="Buscar VIN / CHASS..." oninput="pqFiltrar(this.value)">
+            <input id="pq-fecha" type="date" class="inp" style="max-width:160px;font-size:12px;padding:5px 8px" onchange="pqFiltrar()">
+            <select id="pq-fil-estado" class="sel" style="max-width:160px;font-size:12px;padding:5px 8px" onchange="pqFiltrar()">
+              <option value="">Todos los estados</option>
+              <option value="PENDIENTE">Pendiente</option>
+              <option value="PARQUEADO">Parqueado</option>
+              <option value="CANCELADO">Cancelado</option>
+            </select>
+            <select id="pq-fil-op" class="sel" style="max-width:160px;font-size:12px;padding:5px 8px" onchange="pqFiltrar()">
+              <option value="">Todos los operarios</option>
+            </select>
+            <div style="margin-left:auto;display:flex;gap:6px">
+              <button class="btn btn-ok btn-sm" onclick="pqMarcarSeleccionados('PARQUEADO')">Marcar Parqueado</button>
+              <button class="btn btn-secondary btn-sm" onclick="pqMarcarSeleccionados('CANCELADO')" style="color:var(--ko);border-color:var(--ko)">Cancelar</button>
+              <button class="btn btn-secondary btn-sm" onclick="pqExportar()">Exportar</button>
+            </div>
+          </div>
+          <div style="padding:6px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
+            <input type="checkbox" id="pq-sel-all" onchange="pqSelectAll(this.checked)" style="cursor:pointer">
+            <label for="pq-sel-all" style="font-size:11px;color:var(--muted);cursor:pointer">Seleccionar todos visibles</label>
+            <span id="pq-sel-count" style="font-size:11px;color:var(--muted2)"></span>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr>
+                <th style="width:32px"></th>
+                <th>VIN / CHASS</th><th>Ubicacion</th><th>Tipo</th>
+                <th>Estado</th><th>Fuente</th><th>VER</th>
+                <th>Operario</th><th>Fecha</th><th>Notas</th><th>Accion</th>
+              </tr></thead>
+              <tbody id="pq-tbody"></tbody>
+            </table>
+          </div>
+          <div id="pq-more" style="padding:10px;text-align:center;font-size:11px;color:var(--muted);display:none"></div>
+        </div>
+      </div>
+
       <!-- PRODUCCION -->
       <div class="page" id="page-produccion">
         <div class="page-title">Produccion</div>
@@ -728,6 +902,8 @@ async function syncOQ(){
       if(item.type==='vf'){await sb.from('validaciones_fijas').delete().eq('inventario_id',item.d.inventario_id).eq('ubicacion',item.d.ubicacion);await sb.from('validaciones_fijas').insert(item.d);}
       else if(item.type==='cb'){await sb.from('colectas').delete().eq('inventario_id',item.d.inventario_id).eq('archivo',item.d.archivo);for(let i=0;i<item.d.rows.length;i+=500)await sb.from('colectas').insert(item.d.rows.slice(i,i+500));}
       else if(item.type==='obs'){await sb.from('observaciones').insert(item.d);}
+      else if(item.type==='parqueo'){await sb.from('parqueos').insert(item.d);}
+      else if(item.type==='pq_estado'){await sb.from('parqueos').update({estado:item.d.estado,procesado_por:item.d.procesado_por,procesado_en:item.d.procesado_en}).eq('id',item.d.id);}
       else if(item.type==='prod_ubic'){await sb.from('produccion_ubicaciones').update({activa:false}).eq('vin',item.d.vin).eq('activa',true);await sb.from('produccion_ubicaciones').insert(item.d);}
     }catch(e){err++;S.offlineQueue.push(item);}
   }
@@ -753,6 +929,7 @@ async function init(){
   if(S.operario){ document.getElementById('tb-op').textContent=S.operario; document.getElementById('col-operario-txt').textContent=S.operario; }
   if(ROL==='admin') await cargarInventariosRecientes();
   await cargarProduccion();
+  await cargarParqueos();
   const sid=localStorage.getItem('st_inv_id');
   if(sid) await cargarInventario(sid);
   document.getElementById('loading').classList.add('hidden');
@@ -762,7 +939,7 @@ async function init(){
   updateOfflineUI(); colUpdateOfflineUI();
   if(S.isOnline&&S.offlineQueue.length>0) syncOQ();
 }
-function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.getElementById('nav-'+id).classList.add('active');if(id==='resultados')renderResultados();if(id==='observaciones')renderObs();if(id==='produccion'){prodRenderTabla();}if(id==='dashboard')iniciarCampo();if(id==='buscador')setTimeout(()=>document.getElementById('buscar-inp').focus(),100);if(id==='lote')loteRenderCheck();}
+function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.getElementById('nav-'+id).classList.add('active');if(id==='resultados')renderResultados();if(id==='observaciones')renderObs();if(id==='produccion'){prodRenderTabla();}if(id==='parqueo'){pqFiltrar('');pqUpdateStats();}if(id==='dashboard')iniciarCampo();if(id==='buscador')setTimeout(()=>document.getElementById('buscar-inp').focus(),100);if(id==='lote')loteRenderCheck();}
 function openModal(id){document.getElementById(id).classList.remove('hidden');}
 function closeModal(id){document.getElementById(id).classList.add('hidden');}
 function setOperario(){const v=document.getElementById('op-nombre').value.trim();if(!v)return;S.operario=v;localStorage.setItem('st_op',v);document.getElementById('tb-op').textContent=v;document.getElementById('col-operario-txt').textContent=v;closeModal('modal-operario');toast('Identificado: '+v);}
@@ -1005,6 +1182,14 @@ function setupRealtime(){
   sb.channel('inv-ch')
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'validaciones_fijas'},async(p)=>{if(p.new.inventario_id!==S.invId)return;const v=p.new;S.validFijas=S.validFijas.filter(x=>x.ubicacion!==v.ubicacion);S.validFijas.push(v);localStorage.setItem('st_vf_'+S.invId,JSON.stringify(S.validFijas));logActividad(`<span>${v.operario||'Colector'}</span> valido <span>${v.ubicacion}</span> - ${v.resultado}`);})
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'colectas'},async(p)=>{if(p.new.inventario_id!==S.invId)return;await cargarColectas();calcularResultados();updateStats();cargarPlayaLista();logActividad(`<span>${p.new.operario||'Colector'}</span> cargo <span>${p.new.archivo||p.new.sector}</span>`);})
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'parqueos'},async(p)=>{
+      const exists=pqData.find(x=>x.id===p.new.id);
+      if(!exists){ pqData.unshift(p.new); localStorage.setItem('st_pq',JSON.stringify(pqData)); pqRefreshBadge(); if(document.getElementById('page-parqueo').classList.contains('active'))pqRenderTabla(); logActividad(`<span>${p.new.operario||'Operador'}</span> parqueo <span>${p.new.chass||p.new.vin.slice(-7)}</span> en <span>${p.new.ubicacion}</span>`); }
+    })
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'parqueos'},async(p)=>{
+      const idx=pqData.findIndex(x=>x.id===p.new.id);
+      if(idx>=0){ pqData[idx]=p.new; localStorage.setItem('st_pq',JSON.stringify(pqData)); pqRefreshBadge(); if(document.getElementById('page-parqueo').classList.contains('active'))pqRenderTabla(); }
+    })
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'observaciones'},async(p)=>{if(p.new.inventario_id!==S.invId)return;logActividad(`<span>${p.new.operario||'Colector'}</span> agrego observacion`);})
     .subscribe();
 }
@@ -1062,35 +1247,45 @@ async function importarProduccion(input){
   reader.onload = async(e) => {
     const wb = XLSX.read(e.target.result,{type:'binary'});
     const ws = wb.Sheets[wb.SheetNames[0]];
-    // Leer headers primero (fila 1) para detección robusta antes de parsear datos
-    const headers = XLSX.utils.sheet_to_json(ws, {header:1, range:0})[0] || [];
-    const headerSet = headers.map(h=>String(h||'').trim().toUpperCase());
-    const esCIS = headerSet.includes('PREVIN') && headerSet.includes('CHASS');
-
     const status = document.getElementById('prod-import-status');
     status.style.display='';
     status.innerHTML=`<div style="font-size:12px;color:var(--muted2)">Leyendo archivo...</div>`;
 
-    // Para CIS usar raw:true para evitar que las fechas rompan el json
-    const rows = XLSX.utils.sheet_to_json(ws, {raw:true, defval:''});
-    if(!rows.length){ toast('Archivo vacio','warn'); return; }
+    // Leer como array de arrays para máxima compatibilidad (evita problemas con fechas/tipos)
+    const rawMatrix = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+    if(rawMatrix.length < 2){ toast('Archivo vacio o sin datos','warn'); return; }
 
-    // Normalizar keys del primer row (pueden tener espacios o mayusculas distintas)
+    const headerRow = rawMatrix[0].map(h=>String(h||'').trim());
+    const headerSet = headerRow.map(h=>h.toUpperCase());
+
+    // Detectar formato CIS
+    const esCIS = headerSet.includes('PREVIN') && headerSet.includes('CHASS');
+
+    // Convertir matrix a array de objetos usando los headers reales
+    const rows = rawMatrix.slice(1).map(arr=>{
+      const obj = {};
+      headerRow.forEach((h,i)=>{ obj[h] = arr[i]; });
+      return obj;
+    }).filter(r=>Object.values(r).some(v=>v!==''&&v!==null&&v!==undefined));
+
+    if(!rows.length){ toast('Sin filas de datos','warn'); return; }
     const sample = rows[0];
+    console.log('Muestra fila 1:', JSON.stringify(sample).slice(0,200));
+    console.log('esCIS:', esCIS, '| headers:', headerRow.slice(0,8).join(', '));
 
     let parsed;
     if(esCIS){
       // Formato CIS: VIN = PREVIN + CHASS
-      // Buscar las keys reales (por si hay espacios o distinta capitalización)
-      const allKeys = Object.keys(rows[0]||{});
-      const previnKey = allKeys.find(k=>k.trim().toUpperCase()==='PREVIN') || 'PREVIN';
-      const chassKey  = allKeys.find(k=>k.trim().toUpperCase()==='CHASS')  || 'CHASS';
-      const verKey    = allKeys.find(k=>k.trim().toUpperCase()==='VER')    || 'VER';
-      const merKey    = allKeys.find(k=>k.trim().toUpperCase()==='MER')    || 'MER';
-      const esdKey    = allKeys.find(k=>k.trim().toUpperCase()==='ESD')    || 'ESD';
-      const seqKey    = allKeys.find(k=>k.trim().toUpperCase()==='SEQ')    || 'SEQ';
-      const staKey    = allKeys.find(k=>k.trim().toUpperCase()==='CUR STA'||k.trim().toUpperCase()==='CURSTA') || 'CUR STA';
-      const cisKey    = allKeys.find(k=>k.trim().toUpperCase()==='CIS')    || 'CIS';
+      // Keys mapeadas directamente desde headerRow (ya tienen el nombre exacto)
+      const findKey = (name) => headerRow.find(h=>h.trim().toUpperCase()===name.toUpperCase()) || name;
+      const previnKey = findKey('PREVIN');
+      const chassKey  = findKey('CHASS');
+      const verKey    = findKey('VER');
+      const merKey    = findKey('MER');
+      const esdKey    = findKey('ESD');
+      const seqKey    = findKey('SEQ');
+      const staKey    = findKey('CUR STA');
+      const cisKey    = findKey('CIS');
       parsed = rows.map(r=>{
         const previn = String(r[previnKey]||'').trim();
         const chass  = String(r[chassKey]||'').trim();
@@ -1098,16 +1293,18 @@ async function importarProduccion(input){
         if(vin.length < 10) return null;
         const extra = {};
         ['CIS','ORD','MOC','MOS','SSC','SMO','CEST','SIN','SEQ','M_Y','MDE','All. Spec','E.CU','CNST','OPT_LIST'].forEach(k=>{ if(r[k]!==undefined) extra[k]=r[k]; });
-        // Convertir fecha ESD: puede venir como numero serial de Excel o string
+        // Convertir fecha ESD: sheet_to_json con header:1 devuelve Date objects o strings
         let esdStr = null;
         const esdRaw = r[esdKey];
-        if(esdRaw){
-          if(typeof esdRaw === 'number'){
-            // Excel serial date → JS date
-            const d = new Date(Math.round((esdRaw - 25569)*86400*1000));
+        if(esdRaw !== '' && esdRaw !== null && esdRaw !== undefined){
+          if(esdRaw instanceof Date){
+            esdStr = esdRaw.toISOString().slice(0,10);
+          } else if(typeof esdRaw === 'number'){
+            // Serial de Excel (días desde 1900-01-01)
+            const d = new Date(Math.round((esdRaw - 25569) * 86400 * 1000));
             esdStr = d.toISOString().slice(0,10);
           } else {
-            esdStr = String(esdRaw).slice(0,10);
+            esdStr = String(esdRaw).trim().slice(0,10);
           }
         }
         return {
@@ -1125,10 +1322,9 @@ async function importarProduccion(input){
       status.innerHTML=`<div style="font-size:12px;color:var(--muted2)">Formato CIS detectado — importando ${parsed.length} VINs (PREVIN+CHASS)...</div>`;
     } else {
       // Formato generico con columna VIN
-      const allKeysG = Object.keys(sample);
-      let vinCol = allKeysG.find(k=>k.trim().toUpperCase()==='VIN');
-      if(!vinCol) vinCol = allKeysG.find(k=>String(sample[k]).trim().length===17);
-      if(!vinCol){ toast('No se encontro columna VIN ni PREVIN+CHASS. Headers: '+allKeysG.slice(0,6).join(', '),'ko'); return; }
+      let vinCol = headerRow.find(h=>h.trim().toUpperCase()==='VIN');
+      if(!vinCol) vinCol = headerRow.find(h=>String(sample[h]||'').trim().length===17);
+      if(!vinCol){ toast('No se encontro columna VIN ni PREVIN+CHASS. Headers: '+headerRow.slice(0,8).join(', '),'ko'); return; }
       parsed = rows.map(r=>{
         const vin = String(r[vinCol]||'').trim().slice(0,17);
         if(vin.length < 6) return null;
@@ -1499,6 +1695,416 @@ function prodPreviewLote(val){
   }
 }
 
+
+// ═══════════════════════════════════════════════════════════
+// MÓDULO PARQUEO
+// ═══════════════════════════════════════════════════════════
+let pqData = [];           // registros de parqueo
+let pqVinSel = null;       // {vin, chass, ver, fuente}
+let pqTipo = 'fisica';
+let pqSelIds = new Set();  // IDs seleccionados para accion masiva
+let pqBusqueda = '';
+let pqFechaFil = '';
+let pqEstadoFil = '';
+let pqOpFil = '';
+
+async function cargarParqueos(){
+  if(!S.isOnline){
+    pqData = JSON.parse(localStorage.getItem('st_pq')||'[]');
+    pqRefreshBadge(); return;
+  }
+  pqData = await paginarQuery('parqueos','*',{});
+  pqData.sort((a,b)=>new Date(b.creado_en)-new Date(a.creado_en));
+  localStorage.setItem('st_pq', JSON.stringify(pqData));
+  pqRefreshBadge();
+}
+
+function pqRefreshBadge(){
+  const pend = pqData.filter(p=>p.estado==='PENDIENTE').length;
+  const badge = document.getElementById('badge-parqueo');
+  if(pend>0){ badge.style.display=''; badge.textContent=pend; }
+  else badge.style.display='none';
+  pqUpdateStats();
+}
+
+function pqUpdateStats(){
+  const hoy = new Date().toISOString().slice(0,10);
+  const hoyData = pqData.filter(p=>p.creado_en && p.creado_en.slice(0,10)===hoy);
+  document.getElementById('pq-stat-pend').textContent  = pqData.filter(p=>p.estado==='PENDIENTE').length;
+  document.getElementById('pq-stat-park').textContent  = pqData.filter(p=>p.estado==='PARQUEADO').length;
+  document.getElementById('pq-stat-total').textContent = hoyData.length;
+  // Ultimos 5
+  const el = document.getElementById('pq-recientes');
+  if(!el) return;
+  const recientes = pqData.slice(0,6);
+  el.innerHTML = recientes.length===0
+    ? '<div style="font-size:12px;color:var(--muted)">Sin registros aun</div>'
+    : recientes.map(p=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <span class="mono" style="font-size:11px;font-weight:700">${p.chass||p.vin.slice(-7)}</span>
+          <span style="font-size:10px;color:var(--muted2);margin-left:6px">${p.ubicacion}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="badge ${p.estado==='PARQUEADO'?'b-ok':p.estado==='PENDIENTE'?'b-warn':'b-muted'}">${p.estado}</span>
+          <span style="font-size:10px;color:var(--muted)">${p.operario||''}</span>
+        </div>
+      </div>`).join('');
+}
+
+// ── BUSCAR ──
+function pqBuscar(val){
+  const q = val.trim().toUpperCase();
+  const el = document.getElementById('pq-buscar-results');
+  document.getElementById('pq-sel-box').style.display='none';
+  pqVinSel = null;
+  if(q.length<4){ el.innerHTML=''; return; }
+
+  // Buscar en stock primero
+  const stockMatches = S.stock.filter(s=>
+    s.vin.toUpperCase().includes(q) || s.vin.toUpperCase().endsWith(q)
+  ).slice(0,5);
+
+  // Buscar en produccion
+  const prodMatches = prodData.filter(p=>
+    p.vin.toUpperCase().includes(q) ||
+    (p.chass||'').toUpperCase().includes(q) ||
+    p.vin.toUpperCase().endsWith(q)
+  ).slice(0,5);
+
+  // Combinar sin duplicados
+  const vinsMostrados = new Set();
+  const items = [];
+  for(const s of stockMatches){
+    if(!vinsMostrados.has(s.vin)){
+      vinsMostrados.add(s.vin);
+      items.push({vin:s.vin, chass:s.vin.slice(-7), ver:'', fuente:'stock', modelo:s.modelo, boxatura:s.boxatura});
+    }
+  }
+  for(const p of prodMatches){
+    if(!vinsMostrados.has(p.vin)){
+      vinsMostrados.add(p.vin);
+      items.push({vin:p.vin, chass:p.chass||p.vin.slice(-7), ver:p.ver||'', fuente:'produccion', esd:p.esd});
+    }
+  }
+
+  if(items.length===0){
+    el.innerHTML=`<div style="font-size:12px;color:var(--muted);padding:8px 0">No encontrado en stock ni produccion — <button class="btn btn-secondary btn-xs" onclick="pqManual('${q}')">Ingresar manual</button></div>`;
+    return;
+  }
+
+  el.innerHTML=`<div class="manual-suggestions">${items.map(it=>`
+    <div class="manual-sug-item" onclick="pqSeleccionar(${JSON.stringify(JSON.stringify(it))})">
+      <div>
+        <div class="mono" style="font-size:12px;font-weight:700">${hv(it.vin,q)}</div>
+        <div style="font-size:10px;color:var(--muted2)">
+          CHASS: ${it.chass}${it.ver?' · '+it.ver:''}${it.boxatura?' · Stock: '+it.boxatura:''}${it.esd?' · ESD: '+it.esd:''}
+        </div>
+      </div>
+      <span class="badge ${it.fuente==='stock'?'b-info':'b-warn'}">${it.fuente.toUpperCase()}</span>
+    </div>`).join('')}</div>`;
+}
+
+function pqManual(q){
+  // Permitir ingresar VIN manual si no se encuentra
+  pqSeleccionar(JSON.stringify({vin:q, chass:q, ver:'', fuente:'manual'}));
+}
+
+function pqSeleccionar(jsonStr){
+  const it = JSON.parse(jsonStr);
+  pqVinSel = it;
+  document.getElementById('pq-buscar-results').innerHTML='';
+  document.getElementById('pq-buscar-inp').value='';
+  document.getElementById('pq-sel-vin').textContent = it.vin;
+  document.getElementById('pq-sel-chass').textContent = it.chass ? 'CHASS: '+it.chass : '';
+  document.getElementById('pq-sel-ver').textContent = it.ver ? 'VER: '+it.ver : '';
+  document.getElementById('pq-sel-fuente').textContent = it.fuente.toUpperCase();
+  document.getElementById('pq-sel-fuente').className = 'badge '+(it.fuente==='stock'?'b-info':it.fuente==='produccion'?'b-warn':'b-muted');
+  document.getElementById('pq-sel-box').style.display='';
+  pqSetTipo('fisica');
+  pqUpdateCalles(); pqUpdateBoxes(); pqUpdatePreview();
+}
+
+// ── TIPO Y UBICACION ──
+function pqSetTipo(tipo){
+  pqTipo=tipo;
+  document.getElementById('pq-fisica-wrap').style.display=tipo==='fisica'?'':'none';
+  document.getElementById('pq-lote-wrap').style.display=tipo==='lote'?'':'none';
+  document.getElementById('pq-tipo-fisica').className='btn btn-sm '+(tipo==='fisica'?'btn-primary':'btn-secondary');
+  document.getElementById('pq-tipo-lote').className='btn btn-sm '+(tipo==='lote'?'btn-primary':'btn-secondary');
+  document.getElementById('pq-tipo-fisica').style.justifyContent='center';
+  document.getElementById('pq-tipo-lote').style.justifyContent='center';
+}
+
+function pqUpdateCalles(){
+  const s=document.getElementById('pq-sector').value;
+  const calles=SECTORES[s]?.calles||[];
+  document.getElementById('pq-calle').innerHTML=calles.map(c=>`<option value="${c}">${c}</option>`).join('');
+  pqUpdateBoxes();
+}
+
+function pqUpdateBoxes(){
+  const s=document.getElementById('pq-sector').value;
+  const max=SECTORES[s]?.boxes||52;
+  document.getElementById('pq-box').innerHTML=Array.from({length:max},(_,i)=>String(i+1).padStart(3,'0')).map(b=>`<option value="${b}">${b}</option>`).join('');
+  pqUpdatePreview();
+}
+
+function pqUpdatePreview(){
+  const s=document.getElementById('pq-sector').value;
+  const c=document.getElementById('pq-calle').value;
+  const b=document.getElementById('pq-box').value;
+  document.getElementById('pq-ubic-preview').textContent=`${s}${c}${b}`;
+}
+
+function pqPreviewLote(val){
+  document.getElementById('pq-lote-inp').value=val.toUpperCase();
+  const norm=normalizarUbicacion(val);
+  const el=document.getElementById('pq-lote-preview');
+  if(!val.trim()){el.textContent='';return;}
+  if(esUbicacionFisicaValida(norm)){
+    el.innerHTML=`Ubicacion fisica: <span style="color:var(--accent);font-family:var(--mono);font-weight:700;font-size:16px">${norm}</span>`;
+    pqTipo='fisica';
+  } else {
+    el.innerHTML=`Lote: <span style="color:var(--warn);font-family:var(--mono);font-weight:700">${norm}</span>`;
+  }
+}
+
+function pqCancelar(){
+  pqVinSel=null;
+  document.getElementById('pq-sel-box').style.display='none';
+  document.getElementById('pq-buscar-inp').value='';
+  document.getElementById('pq-buscar-results').innerHTML='';
+}
+
+// ── GUARDAR ──
+async function pqGuardar(){
+  if(!pqVinSel){toast('Selecciona un vehiculo primero','warn');return;}
+  let ubicacion='';
+  let tipoFinal=pqTipo;
+  if(pqTipo==='fisica'){
+    ubicacion=document.getElementById('pq-ubic-preview').textContent;
+  } else {
+    const raw=document.getElementById('pq-lote-inp').value.trim();
+    if(!raw){toast('Ingresa el lote o ubicacion','warn');return;}
+    ubicacion=normalizarUbicacion(raw);
+    if(esUbicacionFisicaValida(ubicacion)) tipoFinal='fisica';
+  }
+  const notas=document.getElementById('pq-notas').value.trim();
+  const registro={
+    vin: pqVinSel.vin,
+    chass: pqVinSel.chass||pqVinSel.vin.slice(-7),
+    ubicacion, tipo_ubicacion:tipoFinal,
+    estado:'PENDIENTE',
+    ver: pqVinSel.ver||'',
+    fuente: pqVinSel.fuente||'manual',
+    operario: S.operario||'',
+    notas, creado_en: new Date().toISOString()
+  };
+
+  // Guardar local inmediato
+  pqData.unshift(registro);
+  localStorage.setItem('st_pq', JSON.stringify(pqData));
+  pqRefreshBadge(); pqRenderTabla();
+  pqCancelar();
+
+  // Sync a Supabase
+  if(S.isOnline){
+    const {data, error}=await sb.from('parqueos').insert(registro).select().single();
+    if(error){ toast('Error al guardar: '+error.message,'ko'); return; }
+    // Actualizar con ID real
+    const idx=pqData.findIndex(p=>p.vin===registro.vin&&p.creado_en===registro.creado_en);
+    if(idx>=0) pqData[idx]={...pqData[idx], id:data.id};
+    localStorage.setItem('st_pq', JSON.stringify(pqData));
+    logActividad(`<span>${S.operario||'Operador'}</span> parqueo <span>${registro.chass}</span> en <span>${ubicacion}</span>`);
+  } else {
+    S.offlineQueue.push({type:'parqueo', d:registro, ts:Date.now()});
+    saveOQ(); toast('Sin conexion - guardado offline','warn'); return;
+  }
+  toast('Parqueo registrado: '+ubicacion,'ok');
+  pqRenderTabla();
+}
+
+// ── TABLA ADMIN ──
+function pqFiltrar(val){
+  if(val!==undefined) pqBusqueda=(val||'').toUpperCase();
+  pqFechaFil  = document.getElementById('pq-fecha')?.value||'';
+  pqEstadoFil = document.getElementById('pq-fil-estado')?.value||'';
+  pqOpFil     = document.getElementById('pq-fil-op')?.value||'';
+  pqRenderTabla();
+}
+
+function pqRenderTabla(){
+  // Poblar select operarios
+  const ops=[...new Set(pqData.map(p=>p.operario).filter(Boolean))];
+  const selOp=document.getElementById('pq-fil-op');
+  if(selOp){
+    const cur=selOp.value;
+    selOp.innerHTML='<option value="">Todos los operarios</option>'+ops.map(o=>`<option value="${o}" ${o===cur?'selected':''}>${o}</option>`).join('');
+  }
+
+  let data=[...pqData];
+  if(pqBusqueda) data=data.filter(p=>p.vin.includes(pqBusqueda)||(p.chass||'').includes(pqBusqueda)||(p.ubicacion||'').includes(pqBusqueda));
+  if(pqFechaFil) data=data.filter(p=>p.creado_en&&p.creado_en.slice(0,10)===pqFechaFil);
+  if(pqEstadoFil) data=data.filter(p=>p.estado===pqEstadoFil);
+  if(pqOpFil) data=data.filter(p=>p.operario===pqOpFil);
+
+  const MAX=300;
+  const eb=e=>e==='PARQUEADO'?'<span class="badge b-ok">PARQUEADO</span>':e==='PENDIENTE'?'<span class="badge b-warn">PENDIENTE</span>':'<span class="badge b-muted">CANCELADO</span>';
+  const ef=f=>f==='stock'?'<span class="badge b-info">STOCK</span>':f==='produccion'?'<span class="badge b-warn">PROD</span>':'<span class="badge b-muted">MANUAL</span>';
+
+  document.getElementById('pq-tbody').innerHTML=data.slice(0,MAX).map(p=>`
+    <tr id="pq-row-${p.id||''}">
+      <td><input type="checkbox" class="pq-chk" value="${p.id||''}" onchange="pqToggleSel(this)" ${pqSelIds.has(p.id||'')?'checked':''}></td>
+      <td>
+        <div class="mono" style="font-size:11px;font-weight:700">${p.vin}</div>
+        <div style="font-size:10px;color:var(--muted2)">CHASS: ${p.chass||p.vin.slice(-7)}</div>
+      </td>
+      <td class="mono" style="font-weight:700;color:var(--accent);font-size:13px">${p.ubicacion}</td>
+      <td>${p.tipo_ubicacion==='fisica'?'<span class="badge b-info">FISICA</span>':'<span class="badge b-warn">LOTE</span>'}</td>
+      <td>${eb(p.estado)}</td>
+      <td>${ef(p.fuente)}</td>
+      <td style="font-size:11px;color:var(--muted2)">${p.ver||'—'}</td>
+      <td style="font-size:11px;color:var(--muted2)">${p.operario||'—'}</td>
+      <td style="font-size:11px;color:var(--muted2);white-space:nowrap">${p.creado_en?new Date(p.creado_en).toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—'}</td>
+      <td style="font-size:11px;color:var(--muted2);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.notas||''}">${p.notas||'—'}</td>
+      <td>
+        ${p.estado==='PENDIENTE'?`
+          <button class="btn btn-xs btn-ok" onclick="pqCambiarEstado('${p.id||''}','PARQUEADO')">Parqueado</button>
+        `:''}
+        ${p.estado!=='CANCELADO'?`
+          <button class="btn btn-xs btn-secondary" style="color:var(--ko);border-color:var(--ko);margin-top:2px" onclick="pqCambiarEstado('${p.id||''}','CANCELADO')">Cancelar</button>
+        `:''}
+      </td>
+    </tr>`).join('');
+
+  const more=document.getElementById('pq-more');
+  if(data.length>MAX){more.style.display='';more.textContent=`Mostrando ${MAX} de ${data.length}.`;}
+  else more.style.display='none';
+
+  document.getElementById('pq-sel-count').textContent=pqSelIds.size>0?`${pqSelIds.size} seleccionados`:'';
+}
+
+function pqToggleSel(cb){
+  if(cb.checked) pqSelIds.add(cb.value);
+  else pqSelIds.delete(cb.value);
+  document.getElementById('pq-sel-count').textContent=pqSelIds.size>0?`${pqSelIds.size} seleccionados`:'';
+}
+
+function pqSelectAll(checked){
+  document.querySelectorAll('.pq-chk').forEach(cb=>{
+    cb.checked=checked;
+    if(checked) pqSelIds.add(cb.value);
+    else pqSelIds.delete(cb.value);
+  });
+  document.getElementById('pq-sel-count').textContent=pqSelIds.size>0?`${pqSelIds.size} seleccionados`:'';
+}
+
+async function pqCambiarEstado(id, nuevoEstado){
+  const idx=pqData.findIndex(p=>p.id===id);
+  if(idx<0) return;
+  pqData[idx].estado=nuevoEstado;
+  pqData[idx].procesado_por=S.operario||'';
+  pqData[idx].procesado_en=new Date().toISOString();
+  localStorage.setItem('st_pq',JSON.stringify(pqData));
+  pqRefreshBadge(); pqRenderTabla();
+  if(S.isOnline){
+    await sb.from('parqueos').update({estado:nuevoEstado,procesado_por:S.operario||'',procesado_en:new Date().toISOString()}).eq('id',id);
+    logActividad(`<span>${S.operario||'Admin'}</span> marco <span>${pqData[idx].chass||pqData[idx].vin.slice(-7)}</span> como ${nuevoEstado}`);
+  } else {
+    S.offlineQueue.push({type:'pq_estado',d:{id,estado:nuevoEstado,procesado_por:S.operario||'',procesado_en:new Date().toISOString()},ts:Date.now()});
+    saveOQ();
+  }
+  toast(nuevoEstado==='PARQUEADO'?'Marcado como parqueado':'Cancelado');
+}
+
+async function pqMarcarSeleccionados(nuevoEstado){
+  if(pqSelIds.size===0){toast('Selecciona al menos un registro','warn');return;}
+  for(const id of pqSelIds) await pqCambiarEstado(id, nuevoEstado);
+  pqSelIds.clear();
+  document.getElementById('pq-sel-all').checked=false;
+  pqRenderTabla();
+}
+
+function pqExportar(){
+  let data=[...pqData];
+  if(pqFechaFil) data=data.filter(p=>p.creado_en&&p.creado_en.slice(0,10)===pqFechaFil);
+  if(pqEstadoFil) data=data.filter(p=>p.estado===pqEstadoFil);
+  if(pqOpFil) data=data.filter(p=>p.operario===pqOpFil);
+  if(!data.length){toast('Sin datos para exportar','warn');return;}
+  const rows=data.map(p=>({
+    VIN:p.vin, CHASS:p.chass||p.vin.slice(-7),
+    UBICACION:p.ubicacion, TIPO:p.tipo_ubicacion?.toUpperCase(),
+    ESTADO:p.estado, FUENTE:p.fuente?.toUpperCase(),
+    VER:p.ver||'', OPERARIO:p.operario||'',
+    FECHA:p.creado_en?new Date(p.creado_en).toLocaleString('es-AR'):'',
+    PROCESADO_POR:p.procesado_por||'',
+    PROCESADO_EN:p.procesado_en?new Date(p.procesado_en).toLocaleString('es-AR'):'',
+    NOTAS:p.notas||''
+  }));
+  const ws=XLSX.utils.json_to_sheet(rows);
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Parqueos');
+  XLSX.writeFile(wb,`Parqueos_${pqFechaFil||'todos'}_${new Date().toLocaleDateString('es-AR').replace(/\//g,'-')}.xlsx`);
+  toast('Exportado OK','ok');
+}
+
+
+// ── COLECTOR PARQUEO (mobile) ──
+let colPqSel=null, colPqTipoActual='fisica';
+
+function pqBuscarCol(val){
+  const q=val.trim().toUpperCase();
+  const el=document.getElementById('col-pq-results');
+  document.getElementById('col-pq-form').style.display='none'; colPqSel=null;
+  if(q.length<4){el.innerHTML='';return;}
+  const sm=S.stock.filter(s=>s.vin.toUpperCase().includes(q)||s.vin.endsWith(q)).slice(0,4);
+  const pm=prodData.filter(p=>p.vin.toUpperCase().includes(q)||(p.chass||'').includes(q)||p.vin.endsWith(q)).slice(0,4);
+  const items=[]; const seen=new Set();
+  sm.forEach(s=>{if(!seen.has(s.vin)){seen.add(s.vin);items.push({vin:s.vin,chass:s.vin.slice(-7),ver:'',fuente:'stock',boxatura:s.boxatura});}});
+  pm.forEach(p=>{if(!seen.has(p.vin)){seen.add(p.vin);items.push({vin:p.vin,chass:p.chass||p.vin.slice(-7),ver:p.ver||'',fuente:'produccion'});}});
+  if(items.length===0){el.innerHTML=`<div style="font-size:12px;color:var(--muted);padding:8px 0">No encontrado — <button class="touch-btn" style="padding:6px 10px;font-size:11px;display:inline-flex" onclick="colPqManual('${q}')">Ingresar manual</button></div>`;return;}
+  el.innerHTML=`<div class="manual-suggestions">${items.map(it=>`<div class="manual-sug-item" onclick="colPqSel2('${it.vin}','${it.chass}','${it.ver}','${it.fuente}','${it.boxatura||''}')"><div><div class="mono" style="font-size:12px;font-weight:700">${hv(it.vin,q)}</div><div style="font-size:10px;color:var(--muted2)">CHASS: ${it.chass}${it.ver?' · '+it.ver:''}${it.boxatura?' · '+it.boxatura:''}</div></div><span class="badge ${it.fuente==='stock'?'b-info':'b-warn'}">${it.fuente==='stock'?'STOCK':'PROD'}</span></div>`).join('')}</div>`;
+}
+
+function colPqManual(q){ colPqSel2(q,q,'','manual',''); }
+
+function colPqSel2(vin,chass,ver,fuente,box){
+  colPqSel={vin,chass,ver,fuente};
+  document.getElementById('col-pq-results').innerHTML='';
+  document.getElementById('col-pq-inp').value='';
+  document.getElementById('col-pq-vin').textContent=vin;
+  document.getElementById('col-pq-info').textContent=[chass?'CHASS: '+chass:'',ver?'VER: '+ver:'',box?'Stock: '+box:'',fuente.toUpperCase()].filter(Boolean).join(' · ');
+  document.getElementById('col-pq-form').style.display='';
+  colPqSetTipo('fisica'); colPqCalles(); colPqBoxes(); colPqPreview();
+}
+
+function colPqSetTipo(t){
+  colPqTipoActual=t;
+  document.getElementById('col-pq-fisica').style.display=t==='fisica'?'':'none';
+  document.getElementById('col-pq-lote').style.display=t==='lote'?'':'none';
+  document.getElementById('col-pq-tipo-fisica').className='touch-btn '+(t==='fisica'?'primary':'');
+  document.getElementById('col-pq-tipo-lote').className='touch-btn '+(t==='lote'?'ok':'');
+}
+
+function colPqCalles(){const s=document.getElementById('col-pq-sector').value;const cl=SECTORES[s]?.calles||[];document.getElementById('col-pq-calle').innerHTML=cl.map(c=>`<option value="${c}">${c}</option>`).join('');colPqBoxes();}
+function colPqBoxes(){const s=document.getElementById('col-pq-sector').value;const max=SECTORES[s]?.boxes||52;document.getElementById('col-pq-box').innerHTML=Array.from({length:max},(_,i)=>String(i+1).padStart(3,'0')).map(b=>`<option value="${b}">${b}</option>`).join('');colPqPreview();}
+function colPqPreview(){const s=document.getElementById('col-pq-sector').value,c=document.getElementById('col-pq-calle').value,b=document.getElementById('col-pq-box').value;document.getElementById('col-pq-preview').textContent=`${s}${c}${b}`;}
+function colPqPreviewLote(val){document.getElementById('col-pq-lote-inp').value=val.toUpperCase();const norm=normalizarUbicacion(val);const el=document.getElementById('col-pq-lote-prev');if(!val.trim()){el.textContent='';return;}if(esUbicacionFisicaValida(norm)){el.innerHTML=`Fisica: <span style="color:var(--accent);font-family:var(--mono);font-weight:700">${norm}</span>`;colPqTipoActual='fisica';}else{el.innerHTML=`Lote: <span style="color:var(--warn);font-family:var(--mono);font-weight:700">${norm}</span>`;}}
+function colPqCancelar(){colPqSel=null;document.getElementById('col-pq-form').style.display='none';document.getElementById('col-pq-inp').value='';document.getElementById('col-pq-results').innerHTML='';}
+async function colPqGuardar(){
+  if(!colPqSel){toast('Selecciona un vehiculo','warn');return;}
+  let ubicacion='',tipoFinal=colPqTipoActual;
+  if(colPqTipoActual==='fisica'){ubicacion=document.getElementById('col-pq-preview').textContent;}
+  else{const raw=document.getElementById('col-pq-lote-inp').value.trim();if(!raw){toast('Ingresa el lote','warn');return;}ubicacion=normalizarUbicacion(raw);if(esUbicacionFisicaValida(ubicacion))tipoFinal='fisica';}
+  const notas=document.getElementById('col-pq-notas').value.trim();
+  const reg={vin:colPqSel.vin,chass:colPqSel.chass,ubicacion,tipo_ubicacion:tipoFinal,estado:'PENDIENTE',ver:colPqSel.ver||'',fuente:colPqSel.fuente||'manual',operario:S.operario||'',notas,creado_en:new Date().toISOString()};
+  pqData.unshift(reg);localStorage.setItem('st_pq',JSON.stringify(pqData));pqRefreshBadge();
+  colPqCancelar();document.getElementById('col-pq-notas').value='';
+  if(S.isOnline){const{error}=await sb.from('parqueos').insert(reg);if(error){toast('Error: '+error.message,'ko');return;}logActividad(`<span>${S.operario||'Colector'}</span> parqueo <span>${reg.chass}</span> en <span>${ubicacion}</span>`);}
+  else{S.offlineQueue.push({type:'parqueo',d:reg,ts:Date.now()});saveOQ();toast('Sin conexion - guardado offline','warn');return;}
+  toast('Parqueo guardado: '+ubicacion,'ok');
+}
+
 // ═══════════════════════════════════════════════════════════
 // ROL: detección automática por ancho de pantalla
 // < 1024px = COLECTOR, >= 1024px = ADMIN
@@ -1546,6 +2152,7 @@ function colTab(id){
   if(id==='buscar') setTimeout(()=>document.getElementById('col-buscar-inp').focus(), 100);
   if(id==='lote') colLoteRenderCheck();
   if(id==='fija') { colScInitCalles(); colScRestaurarPosicion(); }
+  if(id==='parqueo'){ colPqCalles(); colPqBoxes(); colPqPreview(); }
 }
 
 function colRefresh(){
