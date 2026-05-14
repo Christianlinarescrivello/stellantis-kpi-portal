@@ -655,8 +655,9 @@ tr:hover td{background:rgba(255,255,255,.015)}
                 <div style="margin-top:8px;font-size:22px;font-weight:800;letter-spacing:3px;color:var(--accent);font-family:var(--mono);text-align:center" id="prod-ubic-preview">A001001</div>
               </div>
               <div id="prod-lote-wrap" style="display:none;margin-bottom:10px">
-                <label class="lbl">Nombre del lote</label>
-                <input id="prod-lote-inp" class="inp" placeholder="Ej: PRE8, K5, EXT-H3..." autocomplete="off" style="font-size:18px;font-weight:700;letter-spacing:2px;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+                <label class="lbl">Lote o ubicacion (ej: PRE8, K5, L 1 23)</label>
+                <input id="prod-lote-inp" class="inp" placeholder="Ej: PRE8 / K5 / L 1 23..." autocomplete="off" style="font-size:18px;font-weight:700;letter-spacing:2px;text-transform:uppercase" oninput="prodPreviewLote(this.value)">
+                <div id="prod-lote-preview" style="margin-top:6px;font-size:13px;color:var(--muted2);min-height:18px"></div>
               </div>
               <div style="margin-bottom:10px">
                 <label class="lbl">Notas (opcional)</label>
@@ -678,7 +679,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
           </div>
           <div class="tbl-wrap">
             <table>
-              <thead><tr><th>VIN</th><th>Modelo</th><th>Color</th><th>Ubicacion actual</th><th>Tipo</th><th>Operario</th><th>Fecha</th><th>Historial</th></tr></thead>
+              <thead><tr><th>VIN / CHASS</th><th>VER</th><th>ESD</th><th>Estado</th><th>Ubicacion actual</th><th>Tipo</th><th>Operario</th><th>Historial</th></tr></thead>
               <tbody id="prod-tbody"></tbody>
             </table>
           </div>
@@ -1061,40 +1062,65 @@ async function importarProduccion(input){
   reader.onload = async(e) => {
     const wb = XLSX.read(e.target.result,{type:'binary'});
     const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(ws);
+    const rows = XLSX.utils.sheet_to_json(ws, {raw:false, dateNF:'yyyy-mm-dd'});
     if(!rows.length){ toast('Archivo vacio','warn'); return; }
-    // Detectar columna VIN (buscar col que se llame VIN, Vin, vin, o tenga 17 chars)
-    const sample = rows[0];
-    let vinCol = Object.keys(sample).find(k=>k.toUpperCase()==='VIN');
-    if(!vinCol){
-      // buscar columna con valor de 17 chars
-      vinCol = Object.keys(sample).find(k=>String(sample[k]).trim().length===17 || String(sample[k]).trim().length===18);
-    }
-    if(!vinCol){ toast('No se encontro columna VIN en el archivo','ko'); return; }
-    const parsed = rows.map(r=>{
-      const vin = String(r[vinCol]||'').trim().slice(0,17);
-      if(vin.length < 6) return null;
-      const extra = {};
-      Object.keys(r).forEach(k=>{ if(k!==vinCol) extra[k]=r[k]; });
-      return { vin, modelo:r['Modelo']||r['MODEL']||r['model']||'', color:r['Color']||r['COLOR']||r['color']||'', marca:r['Marca']||r['BRAND']||r['brand']||'', datos_extra:extra, archivo_origen:file.name };
-    }).filter(Boolean);
 
     const status = document.getElementById('prod-import-status');
-    status.style.display=''; status.innerHTML=`<div style="font-size:12px;color:var(--muted2)">Importando ${parsed.length} VINs...</div>`;
+    status.style.display='';
 
-    // Upsert en lotes de 500
+    // Detectar si es formato CIS (tiene PREVIN y CHASS) o generico (tiene VIN)
+    const sample = rows[0];
+    const esCIS = 'PREVIN' in sample && 'CHASS' in sample;
+
+    let parsed;
+    if(esCIS){
+      // Formato CIS: VIN = PREVIN + CHASS
+      parsed = rows.map(r=>{
+        const previn = String(r['PREVIN']||'').trim();
+        const chass  = String(r['CHASS']||'').trim();
+        const vin    = (previn + chass).slice(0,17);
+        if(vin.length < 10) return null;
+        const extra = {};
+        ['CIS','ORD','MOC','MOS','SSC','SMO','CEST','SIN','SEQ','M_Y','MDE','All. Spec','E.CU','CNST','OPT_LIST'].forEach(k=>{ if(r[k]!==undefined) extra[k]=r[k]; });
+        return {
+          vin, previn, chass,
+          ver: String(r['VER']||'').trim(),
+          mer: String(r['MER']||'').trim(),
+          esd: r['ESD'] ? String(r['ESD']).slice(0,10) : null,
+          seq: parseInt(r['SEQ'])||null,
+          estado: String(r['CUR STA']||'').trim(),
+          cis: parseInt(r['CIS'])||null,
+          datos_extra: extra,
+          archivo_origen: file.name
+        };
+      }).filter(Boolean);
+      status.innerHTML=`<div style="font-size:12px;color:var(--muted2)">Formato CIS detectado — importando ${parsed.length} VINs (PREVIN+CHASS)...</div>`;
+    } else {
+      // Formato generico con columna VIN
+      let vinCol = Object.keys(sample).find(k=>k.toUpperCase()==='VIN');
+      if(!vinCol) vinCol = Object.keys(sample).find(k=>String(sample[k]).trim().length===17);
+      if(!vinCol){ toast('No se encontro columna VIN ni PREVIN+CHASS','ko'); return; }
+      parsed = rows.map(r=>{
+        const vin = String(r[vinCol]||'').trim().slice(0,17);
+        if(vin.length < 6) return null;
+        const extra = {}; Object.keys(r).forEach(k=>{ if(k!==vinCol) extra[k]=r[k]; });
+        return { vin, datos_extra:extra, archivo_origen:file.name };
+      }).filter(Boolean);
+      status.innerHTML=`<div style="font-size:12px;color:var(--muted2)">Importando ${parsed.length} VINs...</div>`;
+    }
+
     let ok=0, err=0;
     for(let i=0;i<parsed.length;i+=500){
       const lote = parsed.slice(i,i+500);
       const {error} = await sb.from('produccion').upsert(lote, {onConflict:'vin', ignoreDuplicates:false});
-      if(error) err+=lote.length; else ok+=lote.length;
+      if(error){ console.error(error); err+=lote.length; } else ok+=lote.length;
     }
     status.innerHTML = err===0
-      ? `<div style="padding:8px 10px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:4px;font-size:12px;color:var(--ok)">OK ${ok} VINs importados de "${file.name}"</div>`
-      : `<div style="padding:8px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:4px;font-size:12px;color:var(--ko)">${err} errores al importar</div>`;
+      ? `<div style="padding:8px 10px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:4px;font-size:12px;color:var(--ok)">OK ${ok} VINs importados${esCIS?' (formato CIS — PREVIN+CHASS)':''} de "${file.name}"</div>`
+      : `<div style="padding:8px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:4px;font-size:12px;color:var(--ko)">${err} errores — ${ok} importados</div>`;
     await cargarProduccion();
     prodRenderTabla();
-    toast('Importacion completa: '+ok+' VINs','ok');
+    toast('Importacion: '+ok+' VINs','ok');
   };
   reader.readAsBinaryString(file);
 }
@@ -1108,12 +1134,22 @@ function prodBuscarVin(val){
   document.getElementById('prod-asignar-form').style.display='none';
   prodVinSel = null;
   if(q.length<4){ el.innerHTML=''; return; }
-  const matches = prodData.filter(p=>p.vin.toUpperCase().includes(q)).slice(0,6);
+  // Buscar por VIN completo, CHASS o últimos dígitos
+  const matches = prodData.filter(p=>{
+    const vin = p.vin.toUpperCase();
+    const chass = (p.chass||'').toUpperCase();
+    return vin.includes(q) || chass.includes(q) || vin.endsWith(q);
+  }).slice(0,8);
   if(matches.length===0){ el.innerHTML=`<div style="font-size:12px;color:var(--muted)">No encontrado en produccion</div>`; return; }
   el.innerHTML=`<div class="manual-suggestions">${matches.map(m=>{
     const ubic = prodUbicaciones.find(u=>u.vin===m.vin&&u.activa);
+    const chassTxt = m.chass ? ` · CHASS: ${m.chass}` : '';
+    const verTxt = m.ver ? ` · ${m.ver}` : '';
     return `<div class="manual-sug-item" onclick="prodSelVin('${m.vin}')">
-      <span class="mono" style="font-size:13px">${hv(m.vin,q)}</span>
+      <div>
+        <span class="mono" style="font-size:12px">${hv(m.vin,q)}</span>
+        <div style="font-size:10px;color:var(--muted)">${chassTxt}${verTxt}</div>
+      </div>
       <span style="font-size:11px;color:${ubic?'var(--ok)':'var(--muted2)'}">${ubic?ubic.ubicacion:'Sin ubicar'}</span>
     </div>`;
   }).join('')}</div>`;
@@ -1126,7 +1162,13 @@ function prodSelVin(vin){
   document.getElementById('prod-vin-match').innerHTML='';
   document.getElementById('prod-vin-inp').value='';
   document.getElementById('prod-vin-sel').textContent = vin;
-  document.getElementById('prod-info-sel').textContent = [p?.modelo,p?.color,p?.marca].filter(Boolean).join(' · ') + (ubic?' | Actual: '+ubic.ubicacion:'');
+  const infoParts = [];
+  if(p?.chass) infoParts.push('CHASS: '+p.chass);
+  if(p?.ver)   infoParts.push('VER: '+p.ver);
+  if(p?.esd)   infoParts.push('ESD: '+p.esd);
+  if(p?.estado) infoParts.push('Estado: '+p.estado);
+  if(ubic)     infoParts.push('Ubicacion actual: '+ubic.ubicacion);
+  document.getElementById('prod-info-sel').textContent = infoParts.join(' · ');
   document.getElementById('prod-asignar-form').style.display='';
   prodSetTipo('fisica');
   prodInitFisicaSelects();
@@ -1171,8 +1213,11 @@ async function prodAsignarUbicacion(){
   if(prodTipo==='fisica'){
     ubicacion = document.getElementById('prod-ubic-preview').textContent;
   } else {
-    ubicacion = document.getElementById('prod-lote-inp').value.trim().toUpperCase();
-    if(!ubicacion){ toast('Ingresa el nombre del lote','warn'); return; }
+    const raw = document.getElementById('prod-lote-inp').value.trim();
+    if(!raw){ toast('Ingresa el nombre del lote','warn'); return; }
+    ubicacion = normalizarUbicacion(raw);
+    // Si después de normalizar parece fisica, confirmar tipo
+    if(esUbicacionFisicaValida(ubicacion)) prodTipo='fisica';
   }
   const notas = document.getElementById('prod-notas').value.trim();
   // Desactivar ubicaciones anteriores de este VIN
@@ -1225,13 +1270,16 @@ function prodRenderTabla(){
     const hist = prodUbicaciones.filter(u=>u.vin===p.vin).length;
     const u = p._ubic;
     return `<tr>
-      <td class="mono">${p.vin}</td>
-      <td style="font-size:11px;color:var(--muted2)">${p.modelo||'—'}</td>
-      <td style="font-size:11px;color:var(--muted2)">${p.color||'—'}</td>
+      <td>
+        <div class="mono" style="font-size:11px;font-weight:700">${p.vin}</div>
+        ${p.chass?`<div style="font-size:10px;color:var(--muted2)">CHASS: ${p.chass}</div>`:''}
+      </td>
+      <td style="font-size:11px;color:var(--muted2)">${p.ver||'—'}</td>
+      <td style="font-size:11px;color:var(--muted2);white-space:nowrap">${p.esd||'—'}</td>
+      <td style="font-size:11px;color:var(--muted2)">${p.estado||'—'}</td>
       <td class="mono" style="font-weight:700;color:${u?'var(--accent)':'var(--muted)'}">${u?u.ubicacion:'Sin ubicar'}</td>
       <td>${u?`<span class="badge ${u.tipo_ubicacion==='fisica'?'b-info':'b-warn'}">${u.tipo_ubicacion==='fisica'?'FISICA':'LOTE'}</span>`:'—'}</td>
       <td style="font-size:11px;color:var(--muted2)">${u?.operario||'—'}</td>
-      <td style="font-size:11px;color:var(--muted2)">${u?new Date(u.creado_en).toLocaleDateString('es-AR'):'—'}</td>
       <td><button class="btn btn-xs btn-secondary" onclick="prodVerHistorial('${p.vin}')" ${hist>0?'':'disabled'}>${hist} mov.</button></td>
     </tr>`;
   }).join('');
@@ -1385,6 +1433,41 @@ function exportarCampo(){
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Campo');
   XLSX.writeFile(wb, `Campo_${fechaFiltro||'todos'}_${S.invNombre.replace(/\s+/g,'_')}.xlsx`);
   toast('Exportado OK','ok');
+}
+
+
+// ── Normalizar ubicacion ingresada: "L 1 23" → "L001023", "L123" → "L001023"
+function normalizarUbicacion(raw){
+  // Quitar espacios extra y pasar a mayúsculas
+  let s = raw.trim().toUpperCase().replace(/\s+/g,' ');
+  // Formato: SECTOR CALLE BOX con espacios (ej: "L 1 23" o "A 3 5")
+  const m1 = s.match(/^([ABDGL])\s+(\d+)\s+(\d+)$/);
+  if(m1) return m1[1] + m1[2].padStart(3,'0') + m1[3].padStart(3,'0');
+  // Formato compacto sin espacios (ej: "L0123" o "L123")
+  const m2 = s.match(/^([ABDGL])(\d{1,3})(\d{3})$/);
+  if(m2) return m2[1] + m2[2].padStart(3,'0') + m2[3];
+  // Ya está en formato correcto (ej: "L001023")
+  const m3 = s.match(/^([ABDGL])(\d{3})(\d{3})$/);
+  if(m3) return s;
+  // Lote libre — devolver tal cual
+  return s;
+}
+
+function esUbicacionFisicaValida(ubic){
+  return /^[ABDGL]\d{3}\d{3}$/.test(ubic);
+}
+
+function prodPreviewLote(val){
+  const inp = document.getElementById('prod-lote-inp');
+  inp.value = val.toUpperCase();
+  const norm = normalizarUbicacion(val);
+  const el = document.getElementById('prod-lote-preview');
+  if(!val.trim()){ el.textContent=''; return; }
+  if(esUbicacionFisicaValida(norm)){
+    el.innerHTML = `Ubicacion fisica: <span style="color:var(--accent);font-family:var(--mono);font-weight:700;font-size:16px">${norm}</span>`;
+  } else {
+    el.innerHTML = `Lote: <span style="color:var(--warn);font-family:var(--mono);font-weight:700">${norm}</span>`;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
