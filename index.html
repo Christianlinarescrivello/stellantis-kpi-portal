@@ -204,7 +204,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
       <span class="rol-badge rol-colector">COLECTOR</span>
-          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v2.0</span>
+          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v2.1</span>
       <div style="font-size:11px;color:var(--muted2)" id="col-operario-txt" onclick="openModal('modal-operario')" style="cursor:pointer">Toca para identificarte</div>
     </div>
   </div>
@@ -395,7 +395,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     <div class="tb-right">
       <div class="tb-op" id="tb-op" onclick="openModal('modal-operario')">Sin identificar</div>
       <span class="rol-badge rol-admin" id="tb-rol-badge" style="display:none">ADMIN</span>
-      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v2.0</span>
+      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v2.1</span>
       <button class="btn btn-secondary btn-sm" id="btn-pdf" onclick="generarPDF()" style="display:none">PDF</button>
       <button class="btn btn-primary btn-sm" onclick="openModal('modal-inv')">+ Inventario</button>
     </div>
@@ -1358,15 +1358,23 @@ async function importarProduccion(input){
             esdStr = s.length >= 10 ? s.slice(0,10) : null;
           }
         }
+        // Limpiar datos_extra: convertir Dates a string, quitar valores problemáticos
+        const extraClean = {};
+        Object.entries(extra).forEach(([k,v])=>{
+          if(v instanceof Date) extraClean[k] = v.toISOString().slice(0,10);
+          else if(typeof v === 'boolean') extraClean[k] = v ? 1 : 0;
+          else if(v === null || v === undefined || v === '') extraClean[k] = null;
+          else extraClean[k] = v;
+        });
         return {
           vin, previn, chass,
-          ver: String(r[verKey]||'').trim(),
-          mer: String(r[merKey]||'').trim(),
+          ver: String(r[verKey]||'').trim() || null,
+          mer: String(r[merKey]||'').trim() || null,
           esd: esdStr,
           seq: parseInt(r[seqKey])||null,
-          estado: String(r[staKey]||'').trim(),
+          estado: String(r[staKey]||'').trim() || null,
           cis: parseInt(r[cisKey])||null,
-          datos_extra: extra,
+          datos_extra: extraClean,
           archivo_origen: file.name
         };
       }).filter(Boolean);
@@ -1388,8 +1396,16 @@ async function importarProduccion(input){
     let ok=0, err=0;
     for(let i=0;i<parsed.length;i+=500){
       const lote = parsed.slice(i,i+500);
-      const {error} = await sb.from('produccion').upsert(lote, {onConflict:'vin', ignoreDuplicates:false});
-      if(error){ console.error(error); err+=lote.length; } else ok+=lote.length;
+      // Usar insert con onConflict ignoreDuplicates para evitar problemas de upsert con JSONB
+      const {error} = await sb.from('produccion').upsert(lote, {onConflict:'vin'});
+      if(error){
+        console.error('Lote',i/500,'error:', error.message, error.details||'');
+        // Intentar sin datos_extra si falla
+        const loteSimple = lote.map(({datos_extra, ...rest})=>rest);
+        const {error:e2} = await sb.from('produccion').upsert(loteSimple, {onConflict:'vin'});
+        if(e2){ console.error('Sin extra tb fallo:', e2.message); err+=lote.length; }
+        else ok+=lote.length;
+      } else ok+=lote.length;
     }
     status.innerHTML = err===0
       ? `<div style="padding:8px 10px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:4px;font-size:12px;color:var(--ok)">OK ${ok} VINs importados${esCIS?' (formato CIS — PREVIN+CHASS)':''} de "${file.name}"</div>`
