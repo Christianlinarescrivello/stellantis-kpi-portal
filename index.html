@@ -1062,34 +1062,62 @@ async function importarProduccion(input){
   reader.onload = async(e) => {
     const wb = XLSX.read(e.target.result,{type:'binary'});
     const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(ws, {raw:false, dateNF:'yyyy-mm-dd'});
-    if(!rows.length){ toast('Archivo vacio','warn'); return; }
+    // Leer headers primero (fila 1) para detección robusta antes de parsear datos
+    const headers = XLSX.utils.sheet_to_json(ws, {header:1, range:0})[0] || [];
+    const headerSet = headers.map(h=>String(h||'').trim().toUpperCase());
+    const esCIS = headerSet.includes('PREVIN') && headerSet.includes('CHASS');
 
     const status = document.getElementById('prod-import-status');
     status.style.display='';
+    status.innerHTML=`<div style="font-size:12px;color:var(--muted2)">Leyendo archivo...</div>`;
 
-    // Detectar si es formato CIS (tiene PREVIN y CHASS) o generico (tiene VIN)
+    // Para CIS usar raw:true para evitar que las fechas rompan el json
+    const rows = XLSX.utils.sheet_to_json(ws, {raw:true, defval:''});
+    if(!rows.length){ toast('Archivo vacio','warn'); return; }
+
+    // Normalizar keys del primer row (pueden tener espacios o mayusculas distintas)
     const sample = rows[0];
-    const esCIS = 'PREVIN' in sample && 'CHASS' in sample;
 
     let parsed;
     if(esCIS){
       // Formato CIS: VIN = PREVIN + CHASS
+      // Buscar las keys reales (por si hay espacios o distinta capitalización)
+      const allKeys = Object.keys(rows[0]||{});
+      const previnKey = allKeys.find(k=>k.trim().toUpperCase()==='PREVIN') || 'PREVIN';
+      const chassKey  = allKeys.find(k=>k.trim().toUpperCase()==='CHASS')  || 'CHASS';
+      const verKey    = allKeys.find(k=>k.trim().toUpperCase()==='VER')    || 'VER';
+      const merKey    = allKeys.find(k=>k.trim().toUpperCase()==='MER')    || 'MER';
+      const esdKey    = allKeys.find(k=>k.trim().toUpperCase()==='ESD')    || 'ESD';
+      const seqKey    = allKeys.find(k=>k.trim().toUpperCase()==='SEQ')    || 'SEQ';
+      const staKey    = allKeys.find(k=>k.trim().toUpperCase()==='CUR STA'||k.trim().toUpperCase()==='CURSTA') || 'CUR STA';
+      const cisKey    = allKeys.find(k=>k.trim().toUpperCase()==='CIS')    || 'CIS';
       parsed = rows.map(r=>{
-        const previn = String(r['PREVIN']||'').trim();
-        const chass  = String(r['CHASS']||'').trim();
+        const previn = String(r[previnKey]||'').trim();
+        const chass  = String(r[chassKey]||'').trim();
         const vin    = (previn + chass).slice(0,17);
         if(vin.length < 10) return null;
         const extra = {};
         ['CIS','ORD','MOC','MOS','SSC','SMO','CEST','SIN','SEQ','M_Y','MDE','All. Spec','E.CU','CNST','OPT_LIST'].forEach(k=>{ if(r[k]!==undefined) extra[k]=r[k]; });
+        // Convertir fecha ESD: puede venir como numero serial de Excel o string
+        let esdStr = null;
+        const esdRaw = r[esdKey];
+        if(esdRaw){
+          if(typeof esdRaw === 'number'){
+            // Excel serial date → JS date
+            const d = new Date(Math.round((esdRaw - 25569)*86400*1000));
+            esdStr = d.toISOString().slice(0,10);
+          } else {
+            esdStr = String(esdRaw).slice(0,10);
+          }
+        }
         return {
           vin, previn, chass,
-          ver: String(r['VER']||'').trim(),
-          mer: String(r['MER']||'').trim(),
-          esd: r['ESD'] ? String(r['ESD']).slice(0,10) : null,
-          seq: parseInt(r['SEQ'])||null,
-          estado: String(r['CUR STA']||'').trim(),
-          cis: parseInt(r['CIS'])||null,
+          ver: String(r[verKey]||'').trim(),
+          mer: String(r[merKey]||'').trim(),
+          esd: esdStr,
+          seq: parseInt(r[seqKey])||null,
+          estado: String(r[staKey]||'').trim(),
+          cis: parseInt(r[cisKey])||null,
           datos_extra: extra,
           archivo_origen: file.name
         };
@@ -1097,9 +1125,10 @@ async function importarProduccion(input){
       status.innerHTML=`<div style="font-size:12px;color:var(--muted2)">Formato CIS detectado — importando ${parsed.length} VINs (PREVIN+CHASS)...</div>`;
     } else {
       // Formato generico con columna VIN
-      let vinCol = Object.keys(sample).find(k=>k.toUpperCase()==='VIN');
-      if(!vinCol) vinCol = Object.keys(sample).find(k=>String(sample[k]).trim().length===17);
-      if(!vinCol){ toast('No se encontro columna VIN ni PREVIN+CHASS','ko'); return; }
+      const allKeysG = Object.keys(sample);
+      let vinCol = allKeysG.find(k=>k.trim().toUpperCase()==='VIN');
+      if(!vinCol) vinCol = allKeysG.find(k=>String(sample[k]).trim().length===17);
+      if(!vinCol){ toast('No se encontro columna VIN ni PREVIN+CHASS. Headers: '+allKeysG.slice(0,6).join(', '),'ko'); return; }
       parsed = rows.map(r=>{
         const vin = String(r[vinCol]||'').trim().slice(0,17);
         if(vin.length < 6) return null;
