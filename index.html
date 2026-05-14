@@ -1255,36 +1255,33 @@ async function importarProduccion(input){
     status.style.display='';
     status.innerHTML=`<div style="font-size:12px;color:var(--muted2)">Leyendo archivo...</div>`;
 
-    // Leer como array puro — header:1 en XLSX.js devuelve arrays donde [0] = primera fila
-    const rawMatrix = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:false});
+    // Leer con raw:true para preservar tipos nativos (Date objects, numbers)
+    // header:1 = devuelve array de arrays donde [0] son los headers
+    const rawMatrix = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:true, cellDates:true});
     if(rawMatrix.length < 2){ toast('Archivo vacio o sin datos','warn'); return; }
 
-    // Buscar la fila de headers: la primera fila que tenga 'CIS' o 'VIN' o 'PREVIN'
-    let headerIdx = 0;
-    for(let i=0; i<Math.min(5,rawMatrix.length); i++){
-      const rowStr = rawMatrix[i].map(c=>String(c||'').trim().toUpperCase());
-      if(rowStr.includes('PREVIN') || rowStr.includes('CHASS') || rowStr.includes('VIN')){
-        headerIdx = i; break;
-      }
-    }
-    const headerRow = rawMatrix[headerIdx].map(h=>String(h||'').trim());
+    // Fila 0 SIEMPRE son los headers en este formato
+    const headerRow = rawMatrix[0].map(h=>String(h||'').trim());
     const headerSet = headerRow.map(h=>h.toUpperCase());
 
     // Detectar formato CIS
     const esCIS = headerSet.includes('PREVIN') && headerSet.includes('CHASS');
-    console.log('Headers detectados:', headerRow.slice(0,8).join(', '));
-    console.log('esCIS:', esCIS, '| headerIdx:', headerIdx);
+    console.log('Headers fila 0:', headerRow.slice(0,6).join(', '));
+    console.log('esCIS:', esCIS);
 
-    // Convertir filas de datos a objetos
-    const rows = rawMatrix.slice(headerIdx+1).map(arr=>{
+    // Convertir filas 1..N a objetos — saltar filas completamente vacías
+    const rows = rawMatrix.slice(1).map(arr=>{
       const obj = {};
       headerRow.forEach((h,i)=>{ if(h) obj[h] = arr[i]; });
       return obj;
-    }).filter(r=>Object.values(r).some(v=>v!==''&&v!==null&&v!==undefined));
+    }).filter(r=>{
+      // Solo incluir si PREVIN o CHASS tienen valor (para CIS) o si hay algún valor no vacío
+      if(esCIS) return String(r['PREVIN']||'').trim().length > 0 && String(r['CHASS']||'').trim().length > 0;
+      return Object.values(r).some(v=>v!==''&&v!==null&&v!==undefined);
+    });
 
-    if(!rows.length){ toast('Sin filas de datos','warn'); return; }
-    const sample = rows[0];
-    console.log('Muestra fila 1:', JSON.stringify(sample).slice(0,300));
+    if(!rows.length){ toast('Sin filas de datos validos','warn'); return; }
+    console.log('Filas validas:', rows.length, '| Muestra PREVIN:', rows[0]['PREVIN'], 'CHASS:', rows[0]['CHASS']);
 
     let parsed;
     if(esCIS){
@@ -1306,18 +1303,18 @@ async function importarProduccion(input){
         if(vin.length < 10) return null;
         const extra = {};
         ['CIS','ORD','MOC','MOS','SSC','SMO','CEST','SIN','SEQ','M_Y','MDE','All. Spec','E.CU','CNST','OPT_LIST'].forEach(k=>{ if(r[k]!==undefined) extra[k]=r[k]; });
-        // Convertir fecha ESD: sheet_to_json con header:1 devuelve Date objects o strings
+        // Con cellDates:true, las fechas vienen como JS Date objects
         let esdStr = null;
         const esdRaw = r[esdKey];
         if(esdRaw !== '' && esdRaw !== null && esdRaw !== undefined){
-          if(esdRaw instanceof Date){
+          if(esdRaw instanceof Date && !isNaN(esdRaw)){
             esdStr = esdRaw.toISOString().slice(0,10);
           } else if(typeof esdRaw === 'number'){
-            // Serial de Excel (días desde 1900-01-01)
             const d = new Date(Math.round((esdRaw - 25569) * 86400 * 1000));
-            esdStr = d.toISOString().slice(0,10);
+            esdStr = isNaN(d)?null:d.toISOString().slice(0,10);
           } else {
-            esdStr = String(esdRaw).trim().slice(0,10);
+            const s = String(esdRaw).trim();
+            esdStr = s.length >= 10 ? s.slice(0,10) : null;
           }
         }
         return {
