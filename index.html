@@ -962,7 +962,7 @@ async function crearInventario(){
 }
 async function cargarInventario(id){
   let inv;
-  if(S.isOnline){const{data}=await sb.from('inventarios').select('*').eq('id',id).single();inv=data;}
+  if(S.isOnline){const{data}=await sb.from('inventarios').select('*').eq('id',id).maybeSingle();inv=data;}
   else{inv={id,nombre:localStorage.getItem('st_inv_nombre')||'Inventario',fecha:localStorage.getItem('st_inv_fecha')||''};}
   if(!inv)return;
   S.invId=id;S.invNombre=inv.nombre;S.invFecha=inv.fecha;
@@ -1228,7 +1228,7 @@ let prodBusquedaActual = '';
 
 async function cargarProduccion() {
   if(!S.isOnline){ prodData=JSON.parse(localStorage.getItem('st_prod')||'[]'); prodUbicaciones=JSON.parse(localStorage.getItem('st_prod_ubic')||'[]'); prodRefreshBadge(); return; }
-  prodData = await paginarQuery('produccion','id,vin,modelo,color,marca,archivo_origen,creado_en',{});
+  prodData = await paginarQuery('produccion','id,vin,previn,chass,ver,mer,esd,estado,cis,seq,archivo_origen,creado_en',{});
   prodUbicaciones = await paginarQuery('produccion_ubicaciones','id,vin,tipo_ubicacion,ubicacion,operario,notas,activa,creado_en',{});
   localStorage.setItem('st_prod', JSON.stringify(prodData));
   localStorage.setItem('st_prod_ubic', JSON.stringify(prodUbicaciones));
@@ -1251,27 +1251,36 @@ async function importarProduccion(input){
     status.style.display='';
     status.innerHTML=`<div style="font-size:12px;color:var(--muted2)">Leyendo archivo...</div>`;
 
-    // Leer como array de arrays para máxima compatibilidad (evita problemas con fechas/tipos)
-    const rawMatrix = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+    // Leer como array puro — header:1 en XLSX.js devuelve arrays donde [0] = primera fila
+    const rawMatrix = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:false});
     if(rawMatrix.length < 2){ toast('Archivo vacio o sin datos','warn'); return; }
 
-    const headerRow = rawMatrix[0].map(h=>String(h||'').trim());
+    // Buscar la fila de headers: la primera fila que tenga 'CIS' o 'VIN' o 'PREVIN'
+    let headerIdx = 0;
+    for(let i=0; i<Math.min(5,rawMatrix.length); i++){
+      const rowStr = rawMatrix[i].map(c=>String(c||'').trim().toUpperCase());
+      if(rowStr.includes('PREVIN') || rowStr.includes('CHASS') || rowStr.includes('VIN')){
+        headerIdx = i; break;
+      }
+    }
+    const headerRow = rawMatrix[headerIdx].map(h=>String(h||'').trim());
     const headerSet = headerRow.map(h=>h.toUpperCase());
 
     // Detectar formato CIS
     const esCIS = headerSet.includes('PREVIN') && headerSet.includes('CHASS');
+    console.log('Headers detectados:', headerRow.slice(0,8).join(', '));
+    console.log('esCIS:', esCIS, '| headerIdx:', headerIdx);
 
-    // Convertir matrix a array de objetos usando los headers reales
-    const rows = rawMatrix.slice(1).map(arr=>{
+    // Convertir filas de datos a objetos
+    const rows = rawMatrix.slice(headerIdx+1).map(arr=>{
       const obj = {};
-      headerRow.forEach((h,i)=>{ obj[h] = arr[i]; });
+      headerRow.forEach((h,i)=>{ if(h) obj[h] = arr[i]; });
       return obj;
     }).filter(r=>Object.values(r).some(v=>v!==''&&v!==null&&v!==undefined));
 
     if(!rows.length){ toast('Sin filas de datos','warn'); return; }
     const sample = rows[0];
-    console.log('Muestra fila 1:', JSON.stringify(sample).slice(0,200));
-    console.log('esCIS:', esCIS, '| headers:', headerRow.slice(0,8).join(', '));
+    console.log('Muestra fila 1:', JSON.stringify(sample).slice(0,300));
 
     let parsed;
     if(esCIS){
