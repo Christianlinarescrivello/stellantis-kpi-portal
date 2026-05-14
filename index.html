@@ -356,6 +356,8 @@ tr:hover td{background:rgba(255,255,255,.015)}
       <div class="nav-item disabled" onclick="showPage('scanner')" id="nav-scanner"><span class="nav-icon">&#8862;</span> Playa Fija</div>
       <div class="nav-item disabled" onclick="showPage('resultados')" id="nav-resultados"><span class="nav-icon">&#8811;</span> Resultados<span class="nav-badge red" id="badge-ko" style="display:none">0</span></div>
       <div class="nav-item disabled" onclick="showPage('observaciones')" id="nav-observaciones"><span class="nav-icon">&#9998;</span> Observaciones<span class="nav-badge" id="badge-obs">0</span></div>
+      <div class="nav-section">Produccion</div>
+      <div class="nav-item" onclick="showPage('produccion')" id="nav-produccion"><span class="nav-icon">&#9881;</span> Produccion<span class="nav-badge" id="badge-prod">0</span></div>
       <div class="nav-section">Tiempo Real</div>
       <div class="nav-item disabled" onclick="showPage('actividad')" id="nav-actividad"><span class="nav-icon">&#9673;</span> Actividad</div>
     </div>
@@ -566,6 +568,92 @@ tr:hover td{background:rgba(255,255,255,.015)}
           <div class="card"><div class="card-title">Registradas (<span id="obs-count">0</span>)</div><div id="obs-list" style="max-height:420px;overflow-y:auto"></div></div>
         </div>
       </div>
+
+      <!-- PRODUCCION -->
+      <div class="page" id="page-produccion">
+        <div class="page-title">Produccion</div>
+        <div class="page-sub">Asignacion de ubicaciones a unidades de produccion</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+          <!-- Importar archivo -->
+          <div class="card">
+            <div class="card-title">Importar archivo de produccion</div>
+            <div class="upload-zone" onclick="document.getElementById('fi-prod').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDropProd(event)">
+              <input type="file" id="fi-prod" accept=".xlsx,.xls" style="display:none" onchange="importarProduccion(this)">
+              <div style="font-size:28px;margin-bottom:6px">&#9881;</div>
+              <div style="font-size:13px;color:var(--muted2)">Arrastra o toca para importar</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:3px">Excel con columna VIN obligatoria</div>
+            </div>
+            <div id="prod-import-status" style="margin-top:10px;display:none"></div>
+            <div style="margin-top:10px;display:flex;gap:8px;align-items:center;justify-content:space-between">
+              <div style="font-size:12px;color:var(--muted2)">Total en produccion: <span style="color:var(--accent);font-weight:700" id="prod-total">0</span> VINs</div>
+              <button class="btn btn-secondary btn-sm" onclick="exportarProduccion()">Exportar con ubicaciones</button>
+            </div>
+          </div>
+          <!-- Asignar ubicacion -->
+          <div class="card">
+            <div class="card-title">Asignar ubicacion a VIN</div>
+            <div style="margin-bottom:10px">
+              <label class="lbl">Buscar VIN (ultimos 5-6 digitos o completo)</label>
+              <input id="prod-vin-inp" class="inp inp-mono" placeholder="Buscar chasis..." oninput="prodBuscarVin(this.value)" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false">
+              <div id="prod-vin-match" style="margin-top:6px"></div>
+            </div>
+            <div id="prod-asignar-form" style="display:none">
+              <div style="background:rgba(200,164,86,.06);border:1px solid rgba(200,164,86,.2);border-radius:5px;padding:10px;margin-bottom:10px">
+                <div style="font-size:10px;color:var(--muted);letter-spacing:1px">VIN SELECCIONADO</div>
+                <div id="prod-vin-sel" class="mono" style="font-size:15px;font-weight:700;color:var(--accent);letter-spacing:2px;margin-top:2px"></div>
+                <div id="prod-info-sel" style="font-size:11px;color:var(--muted2);margin-top:2px"></div>
+              </div>
+              <div style="margin-bottom:10px">
+                <label class="lbl">Tipo de ubicacion</label>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  <button id="prod-tipo-fisica" class="btn btn-primary btn-sm" onclick="prodSetTipo('fisica')" style="justify-content:center">Fisica (A001001)</button>
+                  <button id="prod-tipo-lote" class="btn btn-secondary btn-sm" onclick="prodSetTipo('lote')" style="justify-content:center">Lote (PRE8)</button>
+                </div>
+              </div>
+              <div id="prod-fisica-wrap" style="margin-bottom:10px">
+                <label class="lbl">Sector / Calle / Box</label>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+                  <select id="prod-sector" class="sel" onchange="prodUpdateCalles()">
+                    <option value="A">A</option><option value="B">B</option>
+                    <option value="D">D</option><option value="G">G</option><option value="L">L</option>
+                  </select>
+                  <select id="prod-calle" class="sel" onchange="prodUpdateBoxes()"></select>
+                  <select id="prod-box" class="sel" onchange="prodUpdateUbicFisica()"></select>
+                </div>
+                <div style="margin-top:8px;font-size:22px;font-weight:800;letter-spacing:3px;color:var(--accent);font-family:var(--mono);text-align:center" id="prod-ubic-preview">A001001</div>
+              </div>
+              <div id="prod-lote-wrap" style="display:none;margin-bottom:10px">
+                <label class="lbl">Nombre del lote</label>
+                <input id="prod-lote-inp" class="inp" placeholder="Ej: PRE8, K5, EXT-H3..." autocomplete="off" style="font-size:18px;font-weight:700;letter-spacing:2px;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+              </div>
+              <div style="margin-bottom:10px">
+                <label class="lbl">Notas (opcional)</label>
+                <input id="prod-notas" class="inp" placeholder="Observacion..." autocomplete="off">
+              </div>
+              <button class="btn btn-primary btn-full" onclick="prodAsignarUbicacion()" style="font-size:15px;padding:10px">Guardar Ubicacion</button>
+            </div>
+          </div>
+        </div>
+        <!-- Tabla de produccion con ubicaciones -->
+        <div class="card" style="padding:0">
+          <div style="padding:12px 16px;display:flex;gap:8px;align-items:center;border-bottom:1px solid var(--border);flex-wrap:wrap">
+            <input class="inp" style="max-width:240px" placeholder="Buscar VIN..." oninput="prodFiltrar(this.value)" id="prod-search">
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="chip active" onclick="prodSetFiltro('TODOS',this)">Todos</button>
+              <button class="chip" onclick="prodSetFiltro('CON_UBIC',this)">Con ubicacion</button>
+              <button class="chip" onclick="prodSetFiltro('SIN_UBIC',this)">Sin ubicacion</button>
+            </div>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>VIN</th><th>Modelo</th><th>Color</th><th>Ubicacion actual</th><th>Tipo</th><th>Operario</th><th>Fecha</th><th>Historial</th></tr></thead>
+              <tbody id="prod-tbody"></tbody>
+            </table>
+          </div>
+          <div id="prod-more" style="padding:10px;text-align:center;font-size:11px;color:var(--muted);display:none"></div>
+        </div>
+      </div>
+
       <!-- ACTIVIDAD -->
       <div class="page" id="page-actividad">
         <div class="page-title">Actividad en Tiempo Real</div><div class="page-sub">Acciones de todos los colectores conectados</div>
@@ -607,6 +695,7 @@ async function syncOQ(){
       if(item.type==='vf'){await sb.from('validaciones_fijas').delete().eq('inventario_id',item.d.inventario_id).eq('ubicacion',item.d.ubicacion);await sb.from('validaciones_fijas').insert(item.d);}
       else if(item.type==='cb'){await sb.from('colectas').delete().eq('inventario_id',item.d.inventario_id).eq('archivo',item.d.archivo);for(let i=0;i<item.d.rows.length;i+=500)await sb.from('colectas').insert(item.d.rows.slice(i,i+500));}
       else if(item.type==='obs'){await sb.from('observaciones').insert(item.d);}
+      else if(item.type==='prod_ubic'){await sb.from('produccion_ubicaciones').update({activa:false}).eq('vin',item.d.vin).eq('activa',true);await sb.from('produccion_ubicaciones').insert(item.d);}
     }catch(e){err++;S.offlineQueue.push(item);}
   }
   saveOQ();
@@ -630,6 +719,7 @@ async function init(){
   aplicarRol();
   if(S.operario){ document.getElementById('tb-op').textContent=S.operario; document.getElementById('col-operario-txt').textContent=S.operario; }
   if(ROL==='admin') await cargarInventariosRecientes();
+  await cargarProduccion();
   const sid=localStorage.getItem('st_inv_id');
   if(sid) await cargarInventario(sid);
   document.getElementById('loading').classList.add('hidden');
@@ -639,7 +729,7 @@ async function init(){
   updateOfflineUI(); colUpdateOfflineUI();
   if(S.isOnline&&S.offlineQueue.length>0) syncOQ();
 }
-function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.getElementById('nav-'+id).classList.add('active');if(id==='resultados')renderResultados();if(id==='observaciones')renderObs();if(id==='buscador')setTimeout(()=>document.getElementById('buscar-inp').focus(),100);if(id==='lote')loteRenderCheck();}
+function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.getElementById('nav-'+id).classList.add('active');if(id==='resultados')renderResultados();if(id==='observaciones')renderObs();if(id==='produccion'){prodRenderTabla();}if(id==='buscador')setTimeout(()=>document.getElementById('buscar-inp').focus(),100);if(id==='lote')loteRenderCheck();}
 function openModal(id){document.getElementById(id).classList.remove('hidden');}
 function closeModal(id){document.getElementById(id).classList.add('hidden');}
 function setOperario(){const v=document.getElementById('op-nombre').value.trim();if(!v)return;S.operario=v;localStorage.setItem('st_op',v);document.getElementById('tb-op').textContent=v;document.getElementById('col-operario-txt').textContent=v;closeModal('modal-operario');toast('Identificado: '+v);}
@@ -669,7 +759,7 @@ async function cargarInventario(id){
   localStorage.setItem('st_inv_id',id);localStorage.setItem('st_inv_nombre',inv.nombre);localStorage.setItem('st_inv_fecha',inv.fecha);
   document.getElementById('inv-sep').style.display='';document.getElementById('tb-inv-name').style.display='';document.getElementById('tb-inv-name').textContent=inv.nombre;document.getElementById('tb-inv-date').style.display='';document.getElementById('tb-inv-date').textContent=inv.fecha;document.getElementById('btn-pdf').style.display='';
   ['dashboard','buscador','lote','scanner','resultados','observaciones','actividad'].forEach(p=>document.getElementById('nav-'+p).classList.remove('disabled'));
-  await Promise.all([cargarStock(),cargarColectas(),cargarValidFijas(),cargarObservaciones()]);
+  await Promise.all([cargarStock(),cargarColectas(),cargarValidFijas(),cargarObservaciones(),cargarProduccion()]);
   calcularResultados();updateStats();cargarPlayaLista();
 }
 async function paginarQuery(tabla,campos,filtros,pageSize=1000){
@@ -907,6 +997,235 @@ function generarPDF(){
   doc.save(`Inventario_${S.invNombre.replace(/\s+/g,'_')}_${S.invFecha.replace(/\//g,'-')}.pdf`);toast('PDF generado','ok');
 }
 function toast(msg,type=''){const el=document.getElementById('toast');el.textContent=msg;el.className='show'+(type?' '+type+'-toast':'');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.className='',2800);}
+
+// ═══════════════════════════════════════════════════════════
+// MÓDULO PRODUCCION
+// ═══════════════════════════════════════════════════════════
+let prodData = [];          // VINs de produccion cargados
+let prodUbicaciones = [];   // historial de ubicaciones
+let prodVinSel = null;      // VIN actualmente seleccionado
+let prodTipo = 'fisica';    // 'fisica' | 'lote'
+let prodFiltroActual = 'TODOS';
+let prodBusquedaActual = '';
+
+async function cargarProduccion() {
+  if(!S.isOnline){ prodData=JSON.parse(localStorage.getItem('st_prod')||'[]'); prodUbicaciones=JSON.parse(localStorage.getItem('st_prod_ubic')||'[]'); prodRefreshBadge(); return; }
+  prodData = await paginarQuery('produccion','id,vin,modelo,color,marca,archivo_origen,creado_en',{});
+  prodUbicaciones = await paginarQuery('produccion_ubicaciones','id,vin,tipo_ubicacion,ubicacion,operario,notas,activa,creado_en',{});
+  localStorage.setItem('st_prod', JSON.stringify(prodData));
+  localStorage.setItem('st_prod_ubic', JSON.stringify(prodUbicaciones));
+  prodRefreshBadge();
+}
+
+function prodRefreshBadge(){
+  document.getElementById('badge-prod').textContent = prodData.length;
+  document.getElementById('prod-total').textContent = prodData.length;
+}
+
+async function importarProduccion(input){
+  const file = input.files[0]; if(!file) return;
+  input.value='';
+  const reader = new FileReader();
+  reader.onload = async(e) => {
+    const wb = XLSX.read(e.target.result,{type:'binary'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws);
+    if(!rows.length){ toast('Archivo vacio','warn'); return; }
+    // Detectar columna VIN (buscar col que se llame VIN, Vin, vin, o tenga 17 chars)
+    const sample = rows[0];
+    let vinCol = Object.keys(sample).find(k=>k.toUpperCase()==='VIN');
+    if(!vinCol){
+      // buscar columna con valor de 17 chars
+      vinCol = Object.keys(sample).find(k=>String(sample[k]).trim().length===17 || String(sample[k]).trim().length===18);
+    }
+    if(!vinCol){ toast('No se encontro columna VIN en el archivo','ko'); return; }
+    const parsed = rows.map(r=>{
+      const vin = String(r[vinCol]||'').trim().slice(0,17);
+      if(vin.length < 6) return null;
+      const extra = {};
+      Object.keys(r).forEach(k=>{ if(k!==vinCol) extra[k]=r[k]; });
+      return { vin, modelo:r['Modelo']||r['MODEL']||r['model']||'', color:r['Color']||r['COLOR']||r['color']||'', marca:r['Marca']||r['BRAND']||r['brand']||'', datos_extra:extra, archivo_origen:file.name };
+    }).filter(Boolean);
+
+    const status = document.getElementById('prod-import-status');
+    status.style.display=''; status.innerHTML=`<div style="font-size:12px;color:var(--muted2)">Importando ${parsed.length} VINs...</div>`;
+
+    // Upsert en lotes de 500
+    let ok=0, err=0;
+    for(let i=0;i<parsed.length;i+=500){
+      const lote = parsed.slice(i,i+500);
+      const {error} = await sb.from('produccion').upsert(lote, {onConflict:'vin', ignoreDuplicates:false});
+      if(error) err+=lote.length; else ok+=lote.length;
+    }
+    status.innerHTML = err===0
+      ? `<div style="padding:8px 10px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:4px;font-size:12px;color:var(--ok)">OK ${ok} VINs importados de "${file.name}"</div>`
+      : `<div style="padding:8px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:4px;font-size:12px;color:var(--ko)">${err} errores al importar</div>`;
+    await cargarProduccion();
+    prodRenderTabla();
+    toast('Importacion completa: '+ok+' VINs','ok');
+  };
+  reader.readAsBinaryString(file);
+}
+
+function handleDropProd(e){ e.preventDefault(); const f=e.dataTransfer.files[0]; if(!f)return; const fake={files:[f],value:''}; importarProduccion(fake); }
+
+// ── BUSCAR VIN en produccion ──
+function prodBuscarVin(val){
+  const q = val.trim().toUpperCase();
+  const el = document.getElementById('prod-vin-match');
+  document.getElementById('prod-asignar-form').style.display='none';
+  prodVinSel = null;
+  if(q.length<4){ el.innerHTML=''; return; }
+  const matches = prodData.filter(p=>p.vin.toUpperCase().includes(q)).slice(0,6);
+  if(matches.length===0){ el.innerHTML=`<div style="font-size:12px;color:var(--muted)">No encontrado en produccion</div>`; return; }
+  el.innerHTML=`<div class="manual-suggestions">${matches.map(m=>{
+    const ubic = prodUbicaciones.find(u=>u.vin===m.vin&&u.activa);
+    return `<div class="manual-sug-item" onclick="prodSelVin('${m.vin}')">
+      <span class="mono" style="font-size:13px">${hv(m.vin,q)}</span>
+      <span style="font-size:11px;color:${ubic?'var(--ok)':'var(--muted2)'}">${ubic?ubic.ubicacion:'Sin ubicar'}</span>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function prodSelVin(vin){
+  prodVinSel = vin;
+  const p = prodData.find(x=>x.vin===vin);
+  const ubic = prodUbicaciones.find(u=>u.vin===vin&&u.activa);
+  document.getElementById('prod-vin-match').innerHTML='';
+  document.getElementById('prod-vin-inp').value='';
+  document.getElementById('prod-vin-sel').textContent = vin;
+  document.getElementById('prod-info-sel').textContent = [p?.modelo,p?.color,p?.marca].filter(Boolean).join(' · ') + (ubic?' | Actual: '+ubic.ubicacion:'');
+  document.getElementById('prod-asignar-form').style.display='';
+  prodSetTipo('fisica');
+  prodInitFisicaSelects();
+}
+
+function prodSetTipo(tipo){
+  prodTipo = tipo;
+  document.getElementById('prod-fisica-wrap').style.display = tipo==='fisica'?'':'none';
+  document.getElementById('prod-lote-wrap').style.display = tipo==='lote'?'':'none';
+  document.getElementById('prod-tipo-fisica').className = 'btn btn-sm justify-content:center '+(tipo==='fisica'?'btn-primary':'btn-secondary');
+  document.getElementById('prod-tipo-lote').className = 'btn btn-sm '+(tipo==='lote'?'btn-primary':'btn-secondary');
+}
+
+function prodInitFisicaSelects(){
+  prodUpdateCalles(); prodUpdateBoxes(); prodUpdateUbicFisica();
+}
+
+function prodUpdateCalles(){
+  const s = document.getElementById('prod-sector').value;
+  const calles = SECTORES[s]?.calles||[];
+  document.getElementById('prod-calle').innerHTML = calles.map(c=>`<option value="${c}">${c}</option>`).join('');
+  prodUpdateBoxes(); prodUpdateUbicFisica();
+}
+
+function prodUpdateBoxes(){
+  const s = document.getElementById('prod-sector').value;
+  const max = SECTORES[s]?.boxes||52;
+  document.getElementById('prod-box').innerHTML = Array.from({length:max},(_,i)=>String(i+1).padStart(3,'0')).map(b=>`<option value="${b}">${b}</option>`).join('');
+  prodUpdateUbicFisica();
+}
+
+function prodUpdateUbicFisica(){
+  const s=document.getElementById('prod-sector').value;
+  const c=document.getElementById('prod-calle').value;
+  const b=document.getElementById('prod-box').value;
+  document.getElementById('prod-ubic-preview').textContent = `${s}${c}${b}`;
+}
+
+async function prodAsignarUbicacion(){
+  if(!prodVinSel){ toast('Selecciona un VIN primero','warn'); return; }
+  let ubicacion='';
+  if(prodTipo==='fisica'){
+    ubicacion = document.getElementById('prod-ubic-preview').textContent;
+  } else {
+    ubicacion = document.getElementById('prod-lote-inp').value.trim().toUpperCase();
+    if(!ubicacion){ toast('Ingresa el nombre del lote','warn'); return; }
+  }
+  const notas = document.getElementById('prod-notas').value.trim();
+  // Desactivar ubicaciones anteriores de este VIN
+  const anteriores = prodUbicaciones.filter(u=>u.vin===prodVinSel&&u.activa);
+  if(anteriores.length>0 && S.isOnline){
+    await sb.from('produccion_ubicaciones').update({activa:false}).eq('vin',prodVinSel).eq('activa',true);
+  }
+  // Guardar nueva
+  const nueva = { vin:prodVinSel, tipo_ubicacion:prodTipo, ubicacion, operario:S.operario||'', notas, activa:true, creado_en:new Date().toISOString() };
+  // Update local
+  prodUbicaciones = prodUbicaciones.map(u=>u.vin===prodVinSel?{...u,activa:false}:u);
+  prodUbicaciones.unshift(nueva);
+  localStorage.setItem('st_prod_ubic', JSON.stringify(prodUbicaciones));
+  // Sync
+  if(S.isOnline){
+    const {error} = await sb.from('produccion_ubicaciones').insert(nueva);
+    if(error){ toast('Error al guardar: '+error.message,'ko'); return; }
+  } else {
+    S.offlineQueue.push({type:'prod_ubic', d:nueva, ts:Date.now()});
+    saveOQ();
+    toast('Sin conexion - guardado offline','warn');
+  }
+  logActividad(`<span>${S.operario||'Operador'}</span> asigno <span>${prodVinSel.slice(-7)}</span> a <span>${ubicacion}</span>`);
+  toast('Ubicacion guardada: '+ubicacion,'ok');
+  document.getElementById('prod-asignar-form').style.display='none';
+  document.getElementById('prod-notas').value='';
+  prodVinSel=null;
+  prodRenderTabla();
+}
+
+// ── TABLA ──
+function prodSetFiltro(f, btn){
+  prodFiltroActual=f;
+  document.querySelectorAll('#page-produccion .chip').forEach(c=>c.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  prodRenderTabla();
+}
+
+function prodFiltrar(v){ prodBusquedaActual=v.toUpperCase(); prodRenderTabla(); }
+
+function prodRenderTabla(){
+  let data = [...prodData];
+  // join con ubicacion activa
+  data = data.map(p=>({...p, _ubic: prodUbicaciones.find(u=>u.vin===p.vin&&u.activa)||null}));
+  if(prodFiltroActual==='CON_UBIC') data=data.filter(p=>p._ubic);
+  if(prodFiltroActual==='SIN_UBIC') data=data.filter(p=>!p._ubic);
+  if(prodBusquedaActual) data=data.filter(p=>p.vin.includes(prodBusquedaActual));
+  const MAX=300;
+  document.getElementById('prod-tbody').innerHTML = data.slice(0,MAX).map(p=>{
+    const hist = prodUbicaciones.filter(u=>u.vin===p.vin).length;
+    const u = p._ubic;
+    return `<tr>
+      <td class="mono">${p.vin}</td>
+      <td style="font-size:11px;color:var(--muted2)">${p.modelo||'—'}</td>
+      <td style="font-size:11px;color:var(--muted2)">${p.color||'—'}</td>
+      <td class="mono" style="font-weight:700;color:${u?'var(--accent)':'var(--muted)'}">${u?u.ubicacion:'Sin ubicar'}</td>
+      <td>${u?`<span class="badge ${u.tipo_ubicacion==='fisica'?'b-info':'b-warn'}">${u.tipo_ubicacion==='fisica'?'FISICA':'LOTE'}</span>`:'—'}</td>
+      <td style="font-size:11px;color:var(--muted2)">${u?.operario||'—'}</td>
+      <td style="font-size:11px;color:var(--muted2)">${u?new Date(u.creado_en).toLocaleDateString('es-AR'):'—'}</td>
+      <td><button class="btn btn-xs btn-secondary" onclick="prodVerHistorial('${p.vin}')" ${hist>0?'':'disabled'}>${hist} mov.</button></td>
+    </tr>`;
+  }).join('');
+  const more = document.getElementById('prod-more');
+  if(data.length>MAX){ more.style.display=''; more.textContent=`Mostrando ${MAX} de ${data.length}.`; } else more.style.display='none';
+}
+
+function prodVerHistorial(vin){
+  const hist = prodUbicaciones.filter(u=>u.vin===vin).sort((a,b)=>new Date(b.creado_en)-new Date(a.creado_en));
+  if(!hist.length){ toast('Sin historial para este VIN'); return; }
+  const lineas = hist.map(u=>`${new Date(u.creado_en).toLocaleString('es-AR')} | ${u.ubicacion} (${u.tipo_ubicacion}) | ${u.operario||'—'} | ${u.activa?'ACTIVA':'anterior'}`).join('\n');
+  alert(`Historial VIN ...${vin.slice(-7)}:\n\n${lineas}`);
+}
+
+function exportarProduccion(){
+  const data = prodData.map(p=>{
+    const u = prodUbicaciones.find(x=>x.vin===p.vin&&x.activa);
+    const hist = prodUbicaciones.filter(x=>x.vin===p.vin).length;
+    return {VIN:p.vin, MODELO:p.modelo, COLOR:p.color, MARCA:p.marca, UBICACION_ACTUAL:u?.ubicacion||'', TIPO_UBICACION:u?.tipo_ubicacion||'', OPERARIO:u?.operario||'', FECHA_ASIGNACION:u?new Date(u.creado_en).toLocaleString('es-AR'):'', CANTIDAD_MOVIMIENTOS:hist, ARCHIVO_ORIGEN:p.archivo_origen};
+  });
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Produccion');
+  XLSX.writeFile(wb,`Produccion_ubicaciones_${new Date().toLocaleDateString('es-AR').replace(/\//g,'-')}.xlsx`);
+  toast('Exportado OK','ok');
+}
+
 // ═══════════════════════════════════════════════════════════
 // ROL: detección automática por ancho de pantalla
 // < 1024px = COLECTOR, >= 1024px = ADMIN
