@@ -243,7 +243,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
       <span class="rol-badge rol-colector">COLECTOR</span>
-          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v2.6</span>
+          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v2.7</span>
       <div style="font-size:11px;color:var(--muted2)" id="col-operario-txt" onclick="openModal('modal-operario')" style="cursor:pointer">Toca para identificarte</div>
     </div>
   </div>
@@ -440,7 +440,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     <div class="tb-right">
       <div class="tb-op" id="tb-op" onclick="openModal('modal-operario')">Sin identificar</div>
       <span class="rol-badge rol-admin" id="tb-rol-badge" style="display:none">ADMIN</span>
-      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v2.6</span>
+      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v2.7</span>
       <button class="theme-toggle" onclick="toggleTheme()" title="Modo claro/oscuro" id="theme-btn">&#9788;</button>
       <button class="btn btn-secondary btn-sm" id="btn-qr" onclick="openQRModal()" style="display:none" title="QR de acceso para colectores">QR</button>
       <button class="btn btn-secondary btn-sm" id="btn-pdf" onclick="generarPDF()" style="display:none">PDF</button>
@@ -694,7 +694,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
         </div>
         <div class="card" style="padding:0">
           <div class="tbl-wrap">
-            <table><thead><tr><th>VIN</th><th>Modelo</th><th>Ubic. Stock</th><th>Ubic. Playa</th><th>Estado</th><th>Accion</th></tr></thead>
+            <table><thead><tr><th>VIN</th><th>Modelo</th><th>Ubic. Stock</th><th>Ubic. Playa</th><th>Estado</th><th>Fuente</th><th>Accion</th></tr></thead>
             <tbody id="res-tbody"></tbody></table>
           </div>
           <div id="res-more" style="padding:10px;text-align:center;font-size:11px;color:var(--muted);display:none"></div>
@@ -1120,6 +1120,9 @@ async function guardarValidFija(v){
   if(!S.invId)return;
   S.validFijas=S.validFijas.filter(x=>x.ubicacion!==v.ubicacion);S.validFijas.push(v);
   localStorage.setItem('st_vf_'+S.invId,JSON.stringify(S.validFijas));
+  if(v.resultado==='COINCIDE'||v.resultado==='OTRO_VIN'||v.resultado==='VACIO_INESPERADO'){
+    calcularResultados();updateStats(); // actualizar dashboard en tiempo real
+  }
   logActividad(`<span>${S.operario||'Colector'}</span> valido <span>${v.ubicacion}</span> - ${v.resultado}`);
   await queueOrSend('vf',{...v,inventario_id:S.invId,operario:S.operario});
 }
@@ -1151,10 +1154,44 @@ function renderObs(){
 }
 function buscarObsVin(v){if(v.length<4){document.getElementById('obs-vin-match').textContent='';return;}const m=S.stock.find(s=>s.vin.toUpperCase().endsWith(v.toUpperCase()));document.getElementById('obs-vin-match').innerHTML=m?`<span style="color:var(--ok)">OK ${m.vin} - ${m.boxatura||'sin ubic.'}</span>`:`<span style="color:var(--muted)">No encontrado</span>`;}
 function calcularResultados(){
-  const res=[];const vip={};for(const c of S.colectas)vip[c.vin]=c.box;const vs=new Set(S.stock.map(s=>s.vin));
-  for(const s of S.stock){const up=vip[s.vin];let e;if(!up)e='NO_COLECTADO';else if(up===s.boxatura)e='OK';else e='UBICACION_INCORRECTA';res.push({vin:s.vin,ubicacionStock:s.boxatura,ubicacionPlaya:up||null,estado:e,modelo:s.modelo,color:s.color});}
-  for(const c of S.colectas){if(!vs.has(c.vin))res.push({vin:c.vin,ubicacionStock:null,ubicacionPlaya:c.box,estado:'NO_EN_STOCK'});}
-  S.resultados=res;const ko=res.filter(r=>r.estado!=='OK').length;const b=document.getElementById('badge-ko');if(ko>0){b.style.display='';b.textContent=ko;}else b.style.display='none';
+  const res=[];
+  // Mapa de colectas (lotes + excel)
+  const vip={};
+  for(const c of S.colectas) vip[c.vin]=c.box;
+
+  // Incorporar validaciones COINCIDE de Playa Fija:
+  // Si un VIN fue validado como COINCIDE, su ubicacion es la que tenia en stock (boxatura)
+  // Solo agrega si no habia ya una colecta para ese VIN
+  for(const vf of S.validFijas){
+    if(vf.resultado==='COINCIDE' && vf.vin_esperado && !(vf.vin_esperado in vip)){
+      vip[vf.vin_esperado] = vf.ubicacion; // ubicacion validada fisicamente
+    }
+  }
+
+  const vs=new Set(S.stock.map(s=>s.vin));
+  for(const s of S.stock){
+    const up=vip[s.vin];
+    let e;
+    if(!up) e='NO_COLECTADO';
+    else if(up===s.boxatura) e='OK';
+    else e='UBICACION_INCORRECTA';
+    // Marcar si vino de playa fija (para mostrarlo en resultados)
+    const deFija = !S.colectas.find(c=>c.vin===s.vin) && S.validFijas.find(v=>v.vin_esperado===s.vin&&v.resultado==='COINCIDE');
+    res.push({vin:s.vin,ubicacionStock:s.boxatura,ubicacionPlaya:up||null,estado:e,modelo:s.modelo,color:s.color,fuente:deFija?'fija':'colecta'});
+  }
+  for(const c of S.colectas){
+    if(!vs.has(c.vin)) res.push({vin:c.vin,ubicacionStock:null,ubicacionPlaya:c.box,estado:'NO_EN_STOCK',fuente:'colecta'});
+  }
+  // VINs encontrados en playa fija que no estan en stock
+  for(const vf of S.validFijas){
+    if(vf.resultado==='COINCIDE' && vf.vin_esperado && !vs.has(vf.vin_esperado) && !S.colectas.find(c=>c.vin===vf.vin_esperado)){
+      res.push({vin:vf.vin_esperado,ubicacionStock:null,ubicacionPlaya:vf.ubicacion,estado:'NO_EN_STOCK',fuente:'fija'});
+    }
+  }
+  S.resultados=res;
+  const ko=res.filter(r=>r.estado!=='OK').length;
+  const b=document.getElementById('badge-ko');
+  if(ko>0){b.style.display='';b.textContent=ko;}else b.style.display='none';
 }
 function updateStats(){
   const r=S.resultados,t=S.stock.length,col=r.filter(x=>x.ubicacionPlaya).length;
@@ -1265,7 +1302,8 @@ function filtrarResultados(v){S.resBusqueda=v;renderResTabla();}
 function renderResTabla(){
   let d=S.resultados;if(S.resFiltro!=='TODOS')d=d.filter(r=>r.estado===S.resFiltro);if(S.resBusqueda){const q=S.resBusqueda.toUpperCase();d=d.filter(r=>r.vin?.includes(q)||r.ubicacionStock?.includes(q)||r.ubicacionPlaya?.includes(q));}
   const MAX=300;const eb=(e)=>{if(e==='OK')return'<span class="badge b-ok">OK</span>';if(e==='NO_COLECTADO')return'<span class="badge b-vir">NO COLECT.</span>';if(e==='UBICACION_INCORRECTA')return'<span class="badge b-ko">KO UBIC</span>';if(e==='NO_EN_STOCK')return'<span class="badge b-warn">NO STOCK</span>';return`<span class="badge b-muted">${e}</span>`;};
-  document.getElementById('res-tbody').innerHTML=d.slice(0,MAX).map(r=>`<tr><td class="mono">${r.vin}</td><td style="font-size:11px;color:var(--muted2);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.modelo?.slice(0,22)||'?'}</td><td class="mono">${r.ubicacionStock||'?'}</td><td class="mono" style="color:${r.ubicacionPlaya?'var(--text)':'var(--muted)'}">${r.ubicacionPlaya||'?'}</td><td>${eb(r.estado)}</td><td>${r.estado==='NO_COLECTADO'?`<button class="btn btn-xs" style="border:1px solid var(--purple);color:var(--purple);background:transparent" onclick="marcarVIR('${r.vin}')">VIR</button>`:''}</td></tr>`).join('');
+  const ef=f=>f==='fija'?'<span class="badge b-info" title="Validado en Playa Fija">FIJA</span>':'<span class="badge b-muted">LOTE</span>';
+  document.getElementById('res-tbody').innerHTML=d.slice(0,MAX).map(r=>`<tr><td class="mono">${r.vin}</td><td style="font-size:11px;color:var(--muted2);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.modelo?.slice(0,20)||'?'}</td><td class="mono">${r.ubicacionStock||'?'}</td><td class="mono" style="color:${r.ubicacionPlaya?'var(--text)':'var(--muted)'}">${r.ubicacionPlaya||'?'}</td><td>${eb(r.estado)}</td><td>${ef(r.fuente)}</td><td>${r.estado==='NO_COLECTADO'?`<button class="btn btn-xs" style="border:1px solid var(--purple);color:var(--purple);background:transparent" onclick="marcarVIR('${r.vin}')">VIR</button>`:''}</td></tr>`).join('');
   const more=document.getElementById('res-more');if(d.length>MAX){more.style.display='';more.textContent=`Mostrando ${MAX} de ${d.length}. Filtra para ver mas.`;}else more.style.display='none';
 }
 function marcarVIR(vin){const obs={vin,tipo:'PASAR A VIR',texto:'Unidad no colectada. Se pasa a VIR para liberar posicion.'};queueOrSend('obs',{...obs,inventario_id:S.invId,operario:S.operario,creado_en:new Date().toISOString()});S.observaciones.unshift({...obs,operario:S.operario});document.getElementById('badge-obs').textContent=S.observaciones.length;toast('VIR marcado para '+vin.slice(-7));}
@@ -1275,7 +1313,7 @@ function handleFile(input,type){processFile(input.files[0],type);input.value='';
 function processFile(file,type){if(!file)return;if(!S.invId){toast('Primero crea un inventario','warn');return;}const reader=new FileReader();reader.onload=async(e)=>{const wb=XLSX.read(e.target.result,{type:'binary'});const ws=wb.Sheets[wb.SheetNames[0]];const data=XLSX.utils.sheet_to_json(ws);if(type==='stock')await subirStock(data);else{const sector=document.getElementById('playa-sector').value.trim();if(!sector){toast('Ingresa el nombre del sector','warn');return;}await subirColectaExcel(data,sector,file.name);}};reader.readAsBinaryString(file);}
 function setupRealtime(){
   sb.channel('inv-ch')
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'validaciones_fijas'},async(p)=>{if(p.new.inventario_id!==S.invId)return;const v=p.new;S.validFijas=S.validFijas.filter(x=>x.ubicacion!==v.ubicacion);S.validFijas.push(v);localStorage.setItem('st_vf_'+S.invId,JSON.stringify(S.validFijas));logActividad(`<span>${v.operario||'Colector'}</span> valido <span>${v.ubicacion}</span> - ${v.resultado}`);})
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'validaciones_fijas'},async(p)=>{if(p.new.inventario_id!==S.invId)return;const v=p.new;S.validFijas=S.validFijas.filter(x=>x.ubicacion!==v.ubicacion);S.validFijas.push(v);localStorage.setItem('st_vf_'+S.invId,JSON.stringify(S.validFijas));calcularResultados();updateStats();logActividad(`<span>${v.operario||'Colector'}</span> valido <span>${v.ubicacion}</span> - ${v.resultado}`);})
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'colectas'},async(p)=>{if(p.new.inventario_id!==S.invId)return;await cargarColectas();calcularResultados();updateStats();cargarPlayaLista();logActividad(`<span>${p.new.operario||'Colector'}</span> cargo <span>${p.new.archivo||p.new.sector}</span>`);})
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'parqueos'},async(p)=>{
       const exists=pqData.find(x=>x.id===p.new.id);
