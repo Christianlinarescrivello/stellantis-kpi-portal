@@ -243,7 +243,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
       <span class="rol-badge rol-colector">COLECTOR</span>
-          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v2.4</span>
+          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v2.5</span>
       <div style="font-size:11px;color:var(--muted2)" id="col-operario-txt" onclick="openModal('modal-operario')" style="cursor:pointer">Toca para identificarte</div>
     </div>
   </div>
@@ -360,7 +360,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
         <div style="font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase" id="col-sc-tipo"></div>
         <div class="touch-loc" id="col-sc-ubic">A001001</div>
         <div class="touch-exp">Esperado: <span class="touch-vin" id="col-sc-exp">VACIO</span></div>
-        <input id="col-sc-inp" class="inp touch-inp inp-mono" placeholder="Escanear VIN..." oninput="colScInput(this.value)" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" style="margin-top:10px">
+        <input id="col-sc-inp" class="inp touch-inp inp-mono" placeholder="Escanear VIN..." oninput="colScInput(this.value)" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" inputmode="none" style="margin-top:10px" onclick="this.removeAttribute('inputmode')" title="Toca para escribir manualmente">
         <div id="col-sc-result" style="display:none" class="touch-result"></div>
       </div>
       <!-- Botón Esta OK — aparece solo cuando hay VIN esperado -->
@@ -440,7 +440,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     <div class="tb-right">
       <div class="tb-op" id="tb-op" onclick="openModal('modal-operario')">Sin identificar</div>
       <span class="rol-badge rol-admin" id="tb-rol-badge" style="display:none">ADMIN</span>
-      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v2.4</span>
+      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v2.5</span>
       <button class="theme-toggle" onclick="toggleTheme()" title="Modo claro/oscuro" id="theme-btn">&#9788;</button>
       <button class="btn btn-secondary btn-sm" id="btn-qr" onclick="openQRModal()" style="display:none" title="QR de acceso para colectores">QR</button>
       <button class="btn btn-secondary btn-sm" id="btn-pdf" onclick="generarPDF()" style="display:none">PDF</button>
@@ -1253,7 +1253,7 @@ function scSaltar(){const ubic=document.getElementById('sc-ubicacion').textConte
 function actualizarSesion(r){if(r==='COINCIDE'||r==='VACIO_OK'){S.scSesion.ok++;vibrar('ok');}else if(r==='OTRO_VIN'||r==='VACIO_INESPERADO'||r==='INESPERADO'){S.scSesion.ko++;vibrar('ko');}if(r==='VACIO_OK')S.scSesion.vac++;document.getElementById('ses-ok').textContent=S.scSesion.ok;document.getElementById('ses-ko').textContent=S.scSesion.ko;document.getElementById('ses-vac').textContent=S.scSesion.vac;}
 const RL={COINCIDE:['COINCIDE','sr-ok'],VACIO_OK:['VACIO - OK','sr-vacio'],OTRO_VIN:['VIN DIFERENTE','sr-ko'],VACIO_INESPERADO:['VACIO INESPERADO','sr-ko'],INESPERADO:['AUTO SIN ASIGNACION','sr-warn'],NO_VERIFICADO:['NO VERIFICADO','sr-warn']};
 function scMostrarResultado(res){const[lbl,cls]=RL[res]||[res,'sr-warn'];const el=document.getElementById('sc-result');el.className='scan-result '+cls;el.textContent=lbl;el.style.display='';document.getElementById('sc-input').value='';document.getElementById('sc-input').style.display='none';}
-function scLimpiarResultado(){document.getElementById('sc-result').style.display='none';const inp=document.getElementById('sc-input');inp.style.display='';inp.value='';setTimeout(()=>inp.focus(),50);}
+function scLimpiarResultado(){document.getElementById('sc-result').style.display='none';const inp=document.getElementById('sc-input');inp.style.display='';inp.value='';if(ROL==='admin')setTimeout(()=>inp.focus(),50);}
 function renderResultados(){
   const cnt={TODOS:S.resultados.length,OK:S.resultados.filter(r=>r.estado==='OK').length,NO_COLECTADO:S.resultados.filter(r=>r.estado==='NO_COLECTADO').length,UBICACION_INCORRECTA:S.resultados.filter(r=>r.estado==='UBICACION_INCORRECTA').length,NO_EN_STOCK:S.resultados.filter(r=>r.estado==='NO_EN_STOCK').length};
   const lbs={TODOS:'Todos',OK:'OK',NO_COLECTADO:'No Colectado',UBICACION_INCORRECTA:'Ubic. Incorrecta',NO_EN_STOCK:'No en Stock'};
@@ -2638,7 +2638,7 @@ function colScMostrarResultado(res){
 function colScLimpiarResultado(){
   document.getElementById('col-sc-result').style.display='none';
   const inp=document.getElementById('col-sc-inp'); inp.style.display=''; inp.value='';
-  setTimeout(()=>inp.focus(),50);
+  // Sin focus() en celular — evita que se abra el teclado al navegar entre ubicaciones
 }
 
 // Extender manualConfirmar para colector
