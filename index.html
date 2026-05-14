@@ -424,6 +424,20 @@ tr:hover td{background:rgba(255,255,255,.015)}
             <div id="playa-lista" style="margin-top:10px"></div>
           </div>
         </div>
+        <!-- RESUMEN DE CAMPO -->
+        <div class="card" style="margin-top:4px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+            <div class="card-title" style="margin-bottom:0">Colectas del dia — por lote / colector</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+              <input id="campo-fecha" type="date" class="inp" style="max-width:160px;font-size:12px;padding:5px 8px" onchange="renderCampo()">
+              <select id="campo-operario" class="sel" style="max-width:160px;font-size:12px;padding:5px 8px" onchange="renderCampo()">
+                <option value="">Todos los colectores</option>
+              </select>
+              <button class="btn btn-secondary btn-sm" onclick="exportarCampo()">Exportar</button>
+            </div>
+          </div>
+          <div id="campo-wrap"></div>
+        </div>
       </div>
       <!-- BUSCADOR -->
       <div class="page" id="page-buscador">
@@ -747,7 +761,7 @@ async function init(){
   updateOfflineUI(); colUpdateOfflineUI();
   if(S.isOnline&&S.offlineQueue.length>0) syncOQ();
 }
-function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.getElementById('nav-'+id).classList.add('active');if(id==='resultados')renderResultados();if(id==='observaciones')renderObs();if(id==='produccion'){prodRenderTabla();}if(id==='buscador')setTimeout(()=>document.getElementById('buscar-inp').focus(),100);if(id==='lote')loteRenderCheck();}
+function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.getElementById('nav-'+id).classList.add('active');if(id==='resultados')renderResultados();if(id==='observaciones')renderObs();if(id==='produccion'){prodRenderTabla();}if(id==='dashboard')iniciarCampo();if(id==='buscador')setTimeout(()=>document.getElementById('buscar-inp').focus(),100);if(id==='lote')loteRenderCheck();}
 function openModal(id){document.getElementById(id).classList.remove('hidden');}
 function closeModal(id){document.getElementById(id).classList.add('hidden');}
 function setOperario(){const v=document.getElementById('op-nombre').value.trim();if(!v)return;S.operario=v;localStorage.setItem('st_op',v);document.getElementById('tb-op').textContent=v;document.getElementById('col-operario-txt').textContent=v;closeModal('modal-operario');toast('Identificado: '+v);}
@@ -820,7 +834,7 @@ async function subirColectaBulk(vins,loteNombre){
   const existing=S.colectas.filter(c=>c.box!==loteNombre);
   S.colectas=[...existing,...rows.map(r=>({vin:r.vin,box:r.box,sector:r.sector,archivo:r.archivo}))];
   localStorage.setItem('st_col_'+S.invId,JSON.stringify(S.colectas));
-  calcularResultados();updateStats();cargarPlayaLista();
+  calcularResultados();updateStats();cargarPlayaLista();if(document.getElementById('page-dashboard').classList.contains('active'))renderCampo();
   const sent=await queueOrSend('cb',{inventario_id:S.invId,archivo,rows});
   if(!sent)toast('Sin conexion - lote guardado offline','warn');else toast('Lote "'+loteNombre+'" procesado: '+vins.length+' unidades','ok');
 }
@@ -1241,6 +1255,135 @@ function exportarProduccion(){
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Produccion');
   XLSX.writeFile(wb,`Produccion_ubicaciones_${new Date().toLocaleDateString('es-AR').replace(/\//g,'-')}.xlsx`);
+  toast('Exportado OK','ok');
+}
+
+
+// ═══════════════════════════════════════════════════════════
+// RESUMEN DE CAMPO
+// ═══════════════════════════════════════════════════════════
+function iniciarCampo(){
+  // Setear fecha de hoy por defecto
+  const hoy = new Date().toISOString().slice(0,10);
+  const fi = document.getElementById('campo-fecha');
+  if(fi && !fi.value) fi.value = hoy;
+  renderCampo();
+}
+
+function renderCampo(){
+  const fechaFiltro = document.getElementById('campo-fecha')?.value || '';
+  const opFiltro = document.getElementById('campo-operario')?.value || '';
+
+  // Poblar select de operarios
+  const operarios = [...new Set(S.colectas.map(c=>c.operario).filter(Boolean))];
+  const sel = document.getElementById('campo-operario');
+  if(sel){
+    const current = sel.value;
+    sel.innerHTML = '<option value="">Todos los colectores</option>' +
+      operarios.map(o=>`<option value="${o}" ${o===current?'selected':''}>${o}</option>`).join('');
+  }
+
+  // Filtrar colectas
+  let colectas = [...S.colectas];
+
+  // Filtrar por fecha (usar creado_en si existe, sino archivo tiene timestamp)
+  if(fechaFiltro){
+    colectas = colectas.filter(c=>{
+      // intentar sacar fecha del campo creado_en o del archivo (LOTE_nombre_timestamp)
+      if(c.creado_en){
+        return c.creado_en.slice(0,10) === fechaFiltro;
+      }
+      // fallback: mostrar todo si no tiene fecha
+      return true;
+    });
+  }
+  if(opFiltro) colectas = colectas.filter(c=>c.operario===opFiltro);
+
+  const wrap = document.getElementById('campo-wrap');
+  if(!wrap) return;
+
+  if(colectas.length===0){
+    wrap.innerHTML = `<div style="text-align:center;padding:24px;font-size:13px;color:var(--muted)">Sin colectas para los filtros seleccionados</div>`;
+    return;
+  }
+
+  // Agrupar por lote/sector (box)
+  const grupos = {};
+  for(const c of colectas){
+    const key = c.box || c.sector || 'SIN LOTE';
+    if(!grupos[key]) grupos[key] = {vins:[], operarios:new Set(), archivos:new Set()};
+    grupos[key].vins.push(c.vin);
+    if(c.operario) grupos[key].operarios.add(c.operario);
+    if(c.archivo) grupos[key].archivos.add(c.archivo);
+  }
+
+  // Ordenar por cantidad desc
+  const sorted = Object.entries(grupos).sort((a,b)=>b[1].vins.length - a[1].vins.length);
+
+  wrap.innerHTML = sorted.map(([lote, g])=>{
+    const ops = [...g.operarios].join(', ') || '—';
+    const total = g.vins.length;
+    // Cruzar con stock: cuantos de estos VINs estan en stock y coinciden ubicacion
+    const enStock = g.vins.filter(v=>S.stock.find(s=>s.vin===v)).length;
+    const noStock = total - enStock;
+
+    return `<div style="margin-bottom:10px;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+      <div style="background:var(--card2);padding:10px 14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="toggleCampoLote('lote-${lote.replace(/[^a-z0-9]/gi,'_')}')">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:18px;font-weight:800;color:var(--accent);font-family:var(--mono);letter-spacing:2px">${lote}</span>
+          <span class="badge b-info">${total} VINs</span>
+          ${noStock>0?`<span class="badge b-warn">${noStock} sin stock</span>`:''}
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:11px;color:var(--muted2)">${ops}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">&#9660; ver detalle</div>
+        </div>
+      </div>
+      <div id="lote-${lote.replace(/[^a-z0-9]/gi,'_')}" style="display:none;padding:10px 14px">
+        <div style="display:flex;flex-wrap:wrap;gap:5px">
+          ${g.vins.map(v=>{
+            const enSt = S.stock.find(s=>s.vin===v);
+            const color = enSt ? 'var(--ok)' : 'var(--warn)';
+            return `<span style="font-family:var(--mono);font-size:11px;padding:3px 7px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:3px;color:${color}" title="${enSt?'En stock':'No en stock'}">${v.slice(-8)}</span>`;
+          }).join('')}
+        </div>
+        <div style="margin-top:8px;font-size:11px;color:var(--muted)">
+          ${enStock} en stock &nbsp;|&nbsp; ${noStock} no en stock &nbsp;|&nbsp; Colector: ${ops}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleCampoLote(id){
+  const el = document.getElementById(id);
+  if(el) el.style.display = el.style.display==='none' ? '' : 'none';
+}
+
+function exportarCampo(){
+  const fechaFiltro = document.getElementById('campo-fecha')?.value || '';
+  const opFiltro = document.getElementById('campo-operario')?.value || '';
+  let colectas = [...S.colectas];
+  if(fechaFiltro) colectas = colectas.filter(c=>!c.creado_en||c.creado_en.slice(0,10)===fechaFiltro);
+  if(opFiltro) colectas = colectas.filter(c=>c.operario===opFiltro);
+
+  const rows = colectas.map(c=>{
+    const enSt = S.stock.find(s=>s.vin===c.vin);
+    return {
+      LOTE_SECTOR: c.box||c.sector||'',
+      VIN: c.vin,
+      MODELO: enSt?.modelo||'',
+      COLOR: enSt?.color||'',
+      EN_STOCK: enSt?'SI':'NO',
+      OPERARIO: c.operario||'',
+      ARCHIVO: c.archivo||'',
+      FECHA: c.creado_en?new Date(c.creado_en).toLocaleString('es-AR'):''
+    };
+  });
+  if(!rows.length){ toast('Sin datos para exportar','warn'); return; }
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Campo');
+  XLSX.writeFile(wb, `Campo_${fechaFiltro||'todos'}_${S.invNombre.replace(/\s+/g,'_')}.xlsx`);
   toast('Exportado OK','ok');
 }
 
