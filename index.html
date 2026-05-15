@@ -1620,7 +1620,7 @@ function exportarExcelProfesional(datos, hojaNombre, nombreArchivo){
     XLSX.utils.book_append_sheet(wb,wp,'Pendientes');
   }
 
-  XLSX.writeFile(wb,nombreArchivo+'_'+fecha.replace(/\/g,'-')+'.xlsx');
+  XLSX.writeFile(wb,nombreArchivo+'_'+fecha.replace(/\//g,'-')+'.xlsx');
   toast('Excel exportado — '+wb.SheetNames.length+' hojas','ok');
 }
 
