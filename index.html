@@ -243,7 +243,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
       <span class="rol-badge rol-colector">COLECTOR</span>
-          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v2.7</span>
+          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v2.9</span>
       <div style="font-size:11px;color:var(--muted2)" id="col-operario-txt" onclick="openModal('modal-operario')" style="cursor:pointer">Toca para identificarte</div>
     </div>
   </div>
@@ -440,7 +440,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     <div class="tb-right">
       <div class="tb-op" id="tb-op" onclick="openModal('modal-operario')">Sin identificar</div>
       <span class="rol-badge rol-admin" id="tb-rol-badge" style="display:none">ADMIN</span>
-      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v2.7</span>
+      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v2.9</span>
       <button class="theme-toggle" onclick="toggleTheme()" title="Modo claro/oscuro" id="theme-btn">&#9788;</button>
       <button class="btn btn-secondary btn-sm" id="btn-qr" onclick="openQRModal()" style="display:none" title="QR de acceso para colectores">QR</button>
       <button class="btn btn-secondary btn-sm" id="btn-pdf" onclick="generarPDF()" style="display:none">PDF</button>
@@ -461,6 +461,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
       <div class="nav-item disabled" onclick="showPage('lote')" id="nav-lote"><span class="nav-icon">&#8862;</span> Colectar Lote<span class="nav-badge amber" id="badge-lote" style="display:none">&#9679;</span></div>
       <div class="nav-item disabled" onclick="showPage('scanner')" id="nav-scanner"><span class="nav-icon">&#8862;</span> Playa Fija</div>
       <div class="nav-item disabled" onclick="showPage('resultados')" id="nav-resultados"><span class="nav-icon">&#8811;</span> Resultados<span class="nav-badge red" id="badge-ko" style="display:none">0</span></div>
+      <div class="nav-item disabled" onclick="showPage('parcial')" id="nav-parcial"><span class="nav-icon">&#9638;</span> Inv. Parcial</div>
       <div class="nav-item disabled" onclick="showPage('observaciones')" id="nav-observaciones"><span class="nav-icon">&#9998;</span> Observaciones<span class="nav-badge" id="badge-obs">0</span></div>
       <div class="nav-section">Parqueo</div>
       <div class="nav-item" onclick="showPage('parqueo')" id="nav-parqueo"><span class="nav-icon">&#9646;</span> Parqueo<span class="nav-badge amber" id="badge-parqueo" style="display:none">0</span></div>
@@ -490,8 +491,9 @@ tr:hover td{background:rgba(255,255,255,.015)}
           <div class="stat-card"><div class="stat-val" style="color:var(--info)" id="s-stock">0</div><div class="stat-lbl">Stock Total</div></div>
           <div class="stat-card"><div class="stat-val" style="color:var(--accent)" id="s-col">0</div><div class="stat-lbl">Colectados</div></div>
           <div class="stat-card"><div class="stat-val" style="color:var(--ok)" id="s-ok">0</div><div class="stat-lbl">OK</div></div>
-          <div class="stat-card"><div class="stat-val" style="color:var(--ko)" id="s-ko">0</div><div class="stat-lbl">KO</div></div>
+          <div class="stat-card"><div class="stat-val" style="color:var(--ko)" id="s-ko">0</div><div class="stat-lbl">KO Ubic.</div></div>
           <div class="stat-card"><div class="stat-val" style="color:var(--warn)" id="s-nos">0</div><div class="stat-lbl">No en Stock</div></div>
+          <div class="stat-card"><div class="stat-val" style="color:var(--purple)" id="s-prod">0</div><div class="stat-lbl">En Productivo</div></div>
           <div class="stat-card"><div class="stat-val" style="color:var(--muted2)" id="s-ncol">0</div><div class="stat-lbl">Sin Colectar</div></div>
         </div>
         <!-- GRAFICO DONUT DE AVANCE -->
@@ -516,9 +518,9 @@ tr:hover td{background:rgba(255,255,255,.015)}
               <div class="donut-leg-item"><span class="donut-leg-dot" style="background:var(--border2)"></span><span>Sin colectar: <strong id="leg-ncol">0</strong></span></div>
             </div>
           </div>
-          <!-- Barra de sectores -->
+          <!-- Grupos de playas -->
           <div style="margin-top:10px">
-            <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Colectado por sector</div>
+            <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">Avance por sector/grupo</div>
             <div id="dash-sector-bars" style="display:flex;flex-direction:column;gap:5px"></div>
           </div>
         </div>
@@ -691,6 +693,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
         <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
           <input class="inp" style="max-width:260px" placeholder="Buscar VIN / Ubicacion..." oninput="filtrarResultados(this.value)" id="res-search">
           <button class="btn btn-secondary btn-sm" onclick="exportarKO()">Exportar KO</button>
+          <button class="btn btn-secondary btn-sm" onclick="exportarTodos()">Exportar Todo</button>
         </div>
         <div class="card" style="padding:0">
           <div class="tbl-wrap">
@@ -698,6 +701,51 @@ tr:hover td{background:rgba(255,255,255,.015)}
             <tbody id="res-tbody"></tbody></table>
           </div>
           <div id="res-more" style="padding:10px;text-align:center;font-size:11px;color:var(--muted);display:none"></div>
+        </div>
+      </div>
+      <!-- INVENTARIO PARCIAL -->
+      <div class="page" id="page-parcial">
+        <div class="page-title">Inventario Parcial</div>
+        <div class="page-sub">Selecciona uno o mas sectores y analiza solo esas ubicaciones</div>
+        <!-- Selector de sectores -->
+        <div class="card" style="margin-bottom:14px">
+          <div class="card-title">Elegir sectores a inventariar</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px" id="parcial-sector-chips"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <button class="btn btn-secondary btn-sm" onclick="parcialSelAll()">Seleccionar todos</button>
+            <button class="btn btn-secondary btn-sm" onclick="parcialClearAll()">Limpiar</button>
+            <button class="btn btn-primary btn-sm" onclick="parcialAnalizar()" id="parcial-btn-analizar" disabled>Analizar sectores seleccionados</button>
+            <span id="parcial-sector-count" style="font-size:12px;color:var(--muted2)"></span>
+          </div>
+        </div>
+        <!-- Resultados parciales -->
+        <div id="parcial-resultados" style="display:none">
+          <!-- Stats -->
+          <div class="stat-grid" id="parcial-stat-grid" style="margin-bottom:14px"></div>
+          <!-- Filtros y tabla -->
+          <div class="card" style="padding:0">
+            <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+              <div style="font-size:13px;font-weight:700" id="parcial-titulo">Resultados</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-left:auto">
+                <button class="chip active" onclick="parcialSetFiltro('TODOS',this)">Todos</button>
+                <button class="chip" onclick="parcialSetFiltro('OK',this)">OK</button>
+                <button class="chip" onclick="parcialSetFiltro('MAL_UBICADO',this)">Mal ubicado</button>
+                <button class="chip" onclick="parcialSetFiltro('NO_ENCONTRADO',this)">No encontrado</button>
+                <button class="chip" onclick="parcialSetFiltro('EXTRA',this)">Extra</button>
+                <button class="chip" onclick="parcialSetFiltro('DESCONOCIDO',this)">Desconocido</button>
+              </div>
+              <button class="btn btn-secondary btn-sm" onclick="parcialExportar()">Exportar</button>
+            </div>
+            <div class="tbl-wrap">
+              <table>
+                <thead><tr>
+                  <th>VIN</th><th>Modelo</th><th>Ubic. Stock</th><th>Ubic. Colectada</th><th>Estado</th><th>Accion sugerida</th>
+                </tr></thead>
+                <tbody id="parcial-tbody"></tbody>
+              </table>
+            </div>
+            <div id="parcial-more" style="padding:10px;text-align:center;font-size:11px;color:var(--muted);display:none"></div>
+          </div>
         </div>
       </div>
       <!-- OBSERVACIONES -->
@@ -1011,6 +1059,7 @@ async function init(){
   if(ROL==='admin') await cargarInventariosRecientes();
   await cargarProduccion();
   await cargarParqueos();
+  cargarVinsProd(); // async, no bloquea
   const sid=localStorage.getItem('st_inv_id');
   if(sid) await cargarInventario(sid);
   document.getElementById('loading').classList.add('hidden');
@@ -1020,7 +1069,7 @@ async function init(){
   updateOfflineUI(); colUpdateOfflineUI();
   if(S.isOnline&&S.offlineQueue.length>0) syncOQ();
 }
-function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.getElementById('nav-'+id).classList.add('active');if(id==='resultados')renderResultados();if(id==='observaciones')renderObs();if(id==='produccion'){cargarProduccion().then(()=>prodRenderTabla());}if(id==='parqueo'){pqFiltrar('');pqUpdateStats();}if(id==='dashboard')iniciarCampo();if(id==='buscador')setTimeout(()=>document.getElementById('buscar-inp').focus(),100);if(id==='lote')loteRenderCheck();}
+function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.getElementById('nav-'+id).classList.add('active');if(id==='resultados')renderResultados();if(id==='observaciones')renderObs();if(id==='produccion'){cargarProduccion().then(()=>prodRenderTabla());}if(id==='parqueo'){pqFiltrar('');pqUpdateStats();}if(id==='dashboard')iniciarCampo();if(id==='parcial'){parcialInit();}if(id==='buscador')setTimeout(()=>document.getElementById('buscar-inp').focus(),100);if(id==='lote')loteRenderCheck();}
 function openModal(id){document.getElementById(id).classList.remove('hidden');}
 function closeModal(id){document.getElementById(id).classList.add('hidden');}
 function setOperario(){const v=document.getElementById('op-nombre').value.trim();if(!v)return;S.operario=v;localStorage.setItem('st_op',v);document.getElementById('tb-op').textContent=v;document.getElementById('col-operario-txt').textContent=v;closeModal('modal-operario');toast('Identificado: '+v);}
@@ -1049,8 +1098,9 @@ async function cargarInventario(id){
   S.invId=id;S.invNombre=inv.nombre;S.invFecha=inv.fecha;
   localStorage.setItem('st_inv_id',id);localStorage.setItem('st_inv_nombre',inv.nombre);localStorage.setItem('st_inv_fecha',inv.fecha);
   document.getElementById('inv-sep').style.display='';document.getElementById('tb-inv-name').style.display='';document.getElementById('tb-inv-name').textContent=inv.nombre;document.getElementById('tb-inv-date').style.display='';document.getElementById('tb-inv-date').textContent=inv.fecha;document.getElementById('btn-pdf').style.display='';document.getElementById('btn-qr').style.display='';
-  ['dashboard','buscador','lote','scanner','resultados','observaciones','actividad'].forEach(p=>document.getElementById('nav-'+p).classList.remove('disabled'));
+  ['dashboard','buscador','lote','scanner','resultados','parcial','observaciones','actividad'].forEach(p=>document.getElementById('nav-'+p).classList.remove('disabled'));
   await Promise.all([cargarStock(),cargarColectas(),cargarValidFijas(),cargarObservaciones(),cargarProduccion()]);
+  cargarVinsProd().then(()=>calcularResultados()).then(()=>updateStats()); // cruce con productivo
   calcularResultados();updateStats();cargarPlayaLista();
 }
 async function paginarQuery(tabla,campos,filtros,pageSize=1000){
@@ -1155,48 +1205,82 @@ function renderObs(){
 function buscarObsVin(v){if(v.length<4){document.getElementById('obs-vin-match').textContent='';return;}const m=S.stock.find(s=>s.vin.toUpperCase().endsWith(v.toUpperCase()));document.getElementById('obs-vin-match').innerHTML=m?`<span style="color:var(--ok)">OK ${m.vin} - ${m.boxatura||'sin ubic.'}</span>`:`<span style="color:var(--muted)">No encontrado</span>`;}
 function calcularResultados(){
   const res=[];
-  // Mapa de colectas (lotes + excel)
   const vip={};
   for(const c of S.colectas) vip[c.vin]=c.box;
-
-  // Incorporar validaciones COINCIDE de Playa Fija:
-  // Si un VIN fue validado como COINCIDE, su ubicacion es la que tenia en stock (boxatura)
-  // Solo agrega si no habia ya una colecta para ese VIN
   for(const vf of S.validFijas){
     if(vf.resultado==='COINCIDE' && vf.vin_esperado && !(vf.vin_esperado in vip)){
-      vip[vf.vin_esperado] = vf.ubicacion; // ubicacion validada fisicamente
+      vip[vf.vin_esperado] = vf.ubicacion;
     }
   }
 
-  const vs=new Set(S.stock.map(s=>s.vin));
+  const vsStock = new Set(S.stock.map(s=>s.vin));
+  // VINs en productivo (cache local — se carga async aparte)
+  const vsProd = new Set((window._vinsProd||[]).map(v=>v));
+
+  // Unidades en stock
   for(const s of S.stock){
     const up=vip[s.vin];
     let e;
     if(!up) e='NO_COLECTADO';
     else if(up===s.boxatura) e='OK';
     else e='UBICACION_INCORRECTA';
-    // Marcar si vino de playa fija (para mostrarlo en resultados)
     const deFija = !S.colectas.find(c=>c.vin===s.vin) && S.validFijas.find(v=>v.vin_esperado===s.vin&&v.resultado==='COINCIDE');
     res.push({vin:s.vin,ubicacionStock:s.boxatura,ubicacionPlaya:up||null,estado:e,modelo:s.modelo,color:s.color,fuente:deFija?'fija':'colecta'});
   }
+
+  // Unidades colectadas/validadas que NO están en stock
+  const vinsProcesados = new Set(res.map(r=>r.vin));
+  const vinsFuera = new Set();
+
   for(const c of S.colectas){
-    if(!vs.has(c.vin)) res.push({vin:c.vin,ubicacionStock:null,ubicacionPlaya:c.box,estado:'NO_EN_STOCK',fuente:'colecta'});
-  }
-  // VINs encontrados en playa fija que no estan en stock
-  for(const vf of S.validFijas){
-    if(vf.resultado==='COINCIDE' && vf.vin_esperado && !vs.has(vf.vin_esperado) && !S.colectas.find(c=>c.vin===vf.vin_esperado)){
-      res.push({vin:vf.vin_esperado,ubicacionStock:null,ubicacionPlaya:vf.ubicacion,estado:'NO_EN_STOCK',fuente:'fija'});
+    if(!vsStock.has(c.vin) && !vinsFuera.has(c.vin)){
+      vinsFuera.add(c.vin);
+      const enProd = vsProd.has(c.vin);
+      res.push({vin:c.vin,ubicacionStock:null,ubicacionPlaya:c.box,
+        estado: enProd ? 'EN_PRODUCTIVO' : 'NO_EN_STOCK',
+        fuente:'colecta'});
     }
   }
+  for(const vf of S.validFijas){
+    if(vf.resultado==='COINCIDE' && vf.vin_esperado && !vsStock.has(vf.vin_esperado) && !vinsFuera.has(vf.vin_esperado) && !S.colectas.find(c=>c.vin===vf.vin_esperado)){
+      vinsFuera.add(vf.vin_esperado);
+      const enProd = vsProd.has(vf.vin_esperado);
+      res.push({vin:vf.vin_esperado,ubicacionStock:null,ubicacionPlaya:vf.ubicacion,
+        estado: enProd ? 'EN_PRODUCTIVO' : 'NO_EN_STOCK',
+        fuente:'fija'});
+    }
+  }
+
   S.resultados=res;
-  const ko=res.filter(r=>r.estado!=='OK').length;
+  const ko=res.filter(r=>r.estado!=='OK'&&r.estado!=='EN_PRODUCTIVO'&&r.estado!=='NO_EN_STOCK').length;
   const b=document.getElementById('badge-ko');
   if(ko>0){b.style.display='';b.textContent=ko;}else b.style.display='none';
+}
+
+// Carga async de VINs de produccion para el cruce (solo los VINs, liviano)
+async function cargarVinsProd(){
+  if(!S.isOnline){ window._vinsProd=[]; return; }
+  try{
+    // Paginado: traer solo el campo vin
+    window._vinsProd=[];
+    let offset=0;
+    while(true){
+      const{data}=await sb.from('produccion').select('vin').range(offset,offset+999);
+      if(!data||data.length===0) break;
+      window._vinsProd.push(...data.map(r=>r.vin));
+      if(data.length<1000) break;
+      offset+=1000;
+    }
+    console.log('VINs prod cargados:',window._vinsProd.length);
+  }catch(e){ window._vinsProd=[]; }
 }
 function updateStats(){
   const r=S.resultados,t=S.stock.length,col=r.filter(x=>x.ubicacionPlaya).length;
   setTimeout(actualizarDonut,100);
-  document.getElementById('s-stock').textContent=t;document.getElementById('s-col').textContent=col;document.getElementById('s-ok').textContent=r.filter(x=>x.estado==='OK').length;document.getElementById('s-ko').textContent=r.filter(x=>x.estado!=='OK'&&x.estado!=='NO_EN_STOCK').length;document.getElementById('s-nos').textContent=r.filter(x=>x.estado==='NO_EN_STOCK').length;document.getElementById('s-ncol').textContent=t-col;
+  document.getElementById('s-stock').textContent=t;document.getElementById('s-col').textContent=col;document.getElementById('s-ok').textContent=r.filter(x=>x.estado==='OK').length;document.getElementById('s-ko').textContent=r.filter(x=>x.estado==='UBICACION_INCORRECTA').length;document.getElementById('s-nos').textContent=r.filter(x=>x.estado==='NO_EN_STOCK').length;document.getElementById('s-ncol').textContent=t-col;
+  // Nuevos contadores
+  const sNosEl=document.getElementById('s-nos');if(sNosEl)sNosEl.textContent=r.filter(x=>x.estado==='NO_EN_STOCK').length;
+  const sProdEl=document.getElementById('s-prod');if(sProdEl)sProdEl.textContent=r.filter(x=>x.estado==='EN_PRODUCTIVO').length;
   if(ROL==='colector') colUpdateStats();
 }
 function loteRenderCheck(){if(S.loteActivo){document.getElementById('lote-config').style.display='none';document.getElementById('lote-colecta').style.display='';loteRenderList();}else{document.getElementById('lote-config').style.display='';document.getElementById('lote-colecta').style.display='none';}}
@@ -1292,8 +1376,8 @@ const RL={COINCIDE:['COINCIDE','sr-ok'],VACIO_OK:['VACIO - OK','sr-vacio'],OTRO_
 function scMostrarResultado(res){const[lbl,cls]=RL[res]||[res,'sr-warn'];const el=document.getElementById('sc-result');el.className='scan-result '+cls;el.textContent=lbl;el.style.display='';const si=document.getElementById('sc-input');si.value='';si.style.display='none';if(isTouchDevice())si.blur();}
 function scLimpiarResultado(){document.getElementById('sc-result').style.display='none';const inp=document.getElementById('sc-input');inp.style.display='';inp.value='';if(!isTouchDevice())setTimeout(()=>inp.focus(),50);}
 function renderResultados(){
-  const cnt={TODOS:S.resultados.length,OK:S.resultados.filter(r=>r.estado==='OK').length,NO_COLECTADO:S.resultados.filter(r=>r.estado==='NO_COLECTADO').length,UBICACION_INCORRECTA:S.resultados.filter(r=>r.estado==='UBICACION_INCORRECTA').length,NO_EN_STOCK:S.resultados.filter(r=>r.estado==='NO_EN_STOCK').length};
-  const lbs={TODOS:'Todos',OK:'OK',NO_COLECTADO:'No Colectado',UBICACION_INCORRECTA:'Ubic. Incorrecta',NO_EN_STOCK:'No en Stock'};
+  const cnt={TODOS:S.resultados.length,OK:S.resultados.filter(r=>r.estado==='OK').length,NO_COLECTADO:S.resultados.filter(r=>r.estado==='NO_COLECTADO').length,UBICACION_INCORRECTA:S.resultados.filter(r=>r.estado==='UBICACION_INCORRECTA').length,NO_EN_STOCK:S.resultados.filter(r=>r.estado==='NO_EN_STOCK').length,EN_PRODUCTIVO:S.resultados.filter(r=>r.estado==='EN_PRODUCTIVO').length};
+  const lbs={TODOS:'Todos',OK:'OK',NO_COLECTADO:'No Colectado',UBICACION_INCORRECTA:'Ubic. Incorrecta',NO_EN_STOCK:'No en Stock',EN_PRODUCTIVO:'En Productivo'};
   document.getElementById('res-filters').innerHTML=Object.entries(lbs).map(([k,v])=>`<button class="chip ${S.resFiltro===k?'active':''}" onclick="setResFiltro('${k}')">${v} <span style="opacity:.6">(${cnt[k]})</span></button>`).join('');
   renderResTabla();
 }
@@ -1301,13 +1385,89 @@ function setResFiltro(f){S.resFiltro=f;renderResultados();}
 function filtrarResultados(v){S.resBusqueda=v;renderResTabla();}
 function renderResTabla(){
   let d=S.resultados;if(S.resFiltro!=='TODOS')d=d.filter(r=>r.estado===S.resFiltro);if(S.resBusqueda){const q=S.resBusqueda.toUpperCase();d=d.filter(r=>r.vin?.includes(q)||r.ubicacionStock?.includes(q)||r.ubicacionPlaya?.includes(q));}
-  const MAX=300;const eb=(e)=>{if(e==='OK')return'<span class="badge b-ok">OK</span>';if(e==='NO_COLECTADO')return'<span class="badge b-vir">NO COLECT.</span>';if(e==='UBICACION_INCORRECTA')return'<span class="badge b-ko">KO UBIC</span>';if(e==='NO_EN_STOCK')return'<span class="badge b-warn">NO STOCK</span>';return`<span class="badge b-muted">${e}</span>`;};
+  const MAX=300;const eb=(e)=>{if(e==='OK')return'<span class="badge b-ok">OK</span>';if(e==='NO_COLECTADO')return'<span class="badge b-vir">NO COLECT.</span>';if(e==='UBICACION_INCORRECTA')return'<span class="badge b-ko">KO UBIC</span>';if(e==='NO_EN_STOCK')return'<span class="badge b-warn">NO STOCK</span>';if(e==='EN_PRODUCTIVO')return'<span class="badge b-vir" style="background:rgba(167,139,250,.15);color:var(--purple)">EN PRODUC.</span>';return`<span class="badge b-muted">${e}</span>`;};
   const ef=f=>f==='fija'?'<span class="badge b-info" title="Validado en Playa Fija">FIJA</span>':'<span class="badge b-muted">LOTE</span>';
   document.getElementById('res-tbody').innerHTML=d.slice(0,MAX).map(r=>`<tr><td class="mono">${r.vin}</td><td style="font-size:11px;color:var(--muted2);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.modelo?.slice(0,20)||'?'}</td><td class="mono">${r.ubicacionStock||'?'}</td><td class="mono" style="color:${r.ubicacionPlaya?'var(--text)':'var(--muted)'}">${r.ubicacionPlaya||'?'}</td><td>${eb(r.estado)}</td><td>${ef(r.fuente)}</td><td>${r.estado==='NO_COLECTADO'?`<button class="btn btn-xs" style="border:1px solid var(--purple);color:var(--purple);background:transparent" onclick="marcarVIR('${r.vin}')">VIR</button>`:''}</td></tr>`).join('');
   const more=document.getElementById('res-more');if(d.length>MAX){more.style.display='';more.textContent=`Mostrando ${MAX} de ${d.length}. Filtra para ver mas.`;}else more.style.display='none';
 }
 function marcarVIR(vin){const obs={vin,tipo:'PASAR A VIR',texto:'Unidad no colectada. Se pasa a VIR para liberar posicion.'};queueOrSend('obs',{...obs,inventario_id:S.invId,operario:S.operario,creado_en:new Date().toISOString()});S.observaciones.unshift({...obs,operario:S.operario});document.getElementById('badge-obs').textContent=S.observaciones.length;toast('VIR marcado para '+vin.slice(-7));}
-function exportarKO(){const ko=S.resultados.filter(r=>r.estado!=='OK');const ws=XLSX.utils.json_to_sheet(ko.map(r=>({VIN:r.vin,MODELO:r.modelo,UBIC_STOCK:r.ubicacionStock,UBIC_PLAYA:r.ubicacionPlaya,ESTADO:r.estado})));const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'KO');XLSX.writeFile(wb,`KO_${S.invNombre}_${new Date().toLocaleDateString('es-AR').replace(/\//g,'-')}.xlsx`);}
+function exportarKO(){
+  const datos=S.resultados.filter(r=>r.estado!=='OK');
+  exportarExcelProfesional(datos,'KO',`KO_${S.invNombre}`);
+}
+
+function exportarTodos(){
+  exportarExcelProfesional(S.resultados,'INVENTARIO',`Inventario_${S.invNombre}`);
+}
+
+function exportarExcelProfesional(datos, hojaNombre, nombreArchivo){
+  const wb = XLSX.utils.book_new();
+  const fecha = new Date().toLocaleDateString('es-AR');
+
+  // ── Hoja principal de datos ──
+  const filas = datos.map(r=>({
+    'VIN': r.vin,
+    'UBICACION': r.ubicacionPlaya||r.ubicacionStock||'',
+    'UBICACION STOCK': r.ubicacionStock||'',
+    'ESTADO': r.estado,
+    'FUENTE': r.fuente==='fija'?'PLAYA FIJA':'LOTE/EXCEL',
+    'MODELO': r.modelo||'',
+    'COLOR': r.color||'',
+    'GRUPO': clasificarUbicacion(r.ubicacionStock||r.ubicacionPlaya).grupo,
+    'SUBGRUPO': clasificarUbicacion(r.ubicacionStock||r.ubicacionPlaya).subgrupo,
+  }));
+
+  // Header con info del inventario (filas de encabezado)
+  const wsData = [
+    ['STELLANTIS ARGENTINA', '', '', '', '', '', '', '', ''],
+    ['Sistema de Inventario de Playa', '', '', '', '', '', '', '', ''],
+    [`Inventario: ${S.invNombre}`, '', `Fecha: ${fecha}`, '', `Operario: ${S.operario||''}`, '', `Total registros: ${datos.length}`, '', ''],
+    ['', '', '', '', '', '', '', '', ''],
+    ['VIN','UBICACION','UBICACION STOCK','ESTADO','FUENTE','MODELO','COLOR','GRUPO','SUBGRUPO'],
+    ...filas.map(f=>Object.values(f))
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Anchos de columna
+  ws['!cols'] = [
+    {wch:20},{wch:14},{wch:14},{wch:18},{wch:14},{wch:22},{wch:14},{wch:18},{wch:12}
+  ];
+
+  // Merge celdas del header
+  ws['!merges'] = [
+    {s:{r:0,c:0},e:{r:0,c:8}}, // Stellantis Argentina
+    {s:{r:1,c:0},e:{r:1,c:8}}, // subtitulo
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, hojaNombre.slice(0,31));
+
+  // ── Hoja resumen por grupo ──
+  const grupos={};
+  for(const r of datos){
+    const {grupo}=clasificarUbicacion(r.ubicacionStock||r.ubicacionPlaya);
+    if(!grupos[grupo])grupos[grupo]={ok:0,ko_ubic:0,no_stock:0,en_prod:0,no_col:0,total:0};
+    grupos[grupo].total++;
+    if(r.estado==='OK')grupos[grupo].ok++;
+    else if(r.estado==='UBICACION_INCORRECTA')grupos[grupo].ko_ubic++;
+    else if(r.estado==='NO_EN_STOCK')grupos[grupo].no_stock++;
+    else if(r.estado==='EN_PRODUCTIVO')grupos[grupo].en_prod++;
+    else if(r.estado==='NO_COLECTADO')grupos[grupo].no_col++;
+  }
+  const wsRes = XLSX.utils.aoa_to_sheet([
+    ['STELLANTIS — RESUMEN POR GRUPO','','','','','',''],
+    [`Inventario: ${S.invNombre} | Fecha: ${fecha}`,'','','','','',''],
+    [''],
+    ['GRUPO','OK','KO UBICACION','NO EN STOCK','EN PRODUCTIVO','NO COLECTADO','TOTAL'],
+    ...Object.entries(grupos).map(([g,d])=>[g,d.ok,d.ko_ubic,d.no_stock,d.en_prod,d.no_col,d.total])
+  ]);
+  wsRes['!cols']=[{wch:20},{wch:8},{wch:14},{wch:12},{wch:14},{wch:14},{wch:8}];
+  wsRes['!merges']=[{s:{r:0,c:0},e:{r:0,c:6}},{s:{r:1,c:0},e:{r:1,c:6}}];
+  XLSX.utils.book_append_sheet(wb, wsRes, 'Resumen');
+
+  XLSX.writeFile(wb, `${nombreArchivo}_${fecha.replace(/\//g,'-')}.xlsx`);
+  toast('Excel exportado','ok');
+}
 function handleDrop(e,type){e.preventDefault();document.getElementById('uz-'+type)?.classList.remove('drag');processFile(e.dataTransfer.files[0],type);}
 function handleFile(input,type){processFile(input.files[0],type);input.value='';}
 function processFile(file,type){if(!file)return;if(!S.invId){toast('Primero crea un inventario','warn');return;}const reader=new FileReader();reader.onload=async(e)=>{const wb=XLSX.read(e.target.result,{type:'binary'});const ws=wb.Sheets[wb.SheetNames[0]];const data=XLSX.utils.sheet_to_json(ws);if(type==='stock')await subirStock(data);else{const sector=document.getElementById('playa-sector').value.trim();if(!sector){toast('Ingresa el nombre del sector','warn');return;}await subirColectaExcel(data,sector,file.name);}};reader.readAsBinaryString(file);}
@@ -2692,6 +2852,279 @@ window.manualConfirmar = function(){
 };
 
 
+
+// ═══════════════════════════════════════════════════════════
+// INVENTARIO PARCIAL
+// ═══════════════════════════════════════════════════════════
+let parcialSectoresSeleccionados = new Set();
+let parcialResultados = [];
+let parcialFiltroActual = 'TODOS';
+
+function parcialInit(){
+  // Construir chips de sectores disponibles a partir del stock y colectas
+  const todos = new Set();
+  for(const s of S.stock){
+    const {subgrupo} = clasificarUbicacion(s.boxatura);
+    if(subgrupo && subgrupo!=='?') todos.add(subgrupo);
+  }
+  for(const c of S.colectas){
+    const {subgrupo} = clasificarUbicacion(c.box);
+    if(subgrupo && subgrupo!=='?') todos.add(subgrupo);
+  }
+  for(const vf of S.validFijas){
+    if(vf.resultado==='COINCIDE'&&vf.ubicacion){
+      const {subgrupo} = clasificarUbicacion(vf.ubicacion);
+      if(subgrupo && subgrupo!=='?') todos.add(subgrupo);
+    }
+  }
+
+  // Ordenar por grupo y luego subgrupo
+  const sorted = [...todos].sort((a,b)=>{
+    const ga = clasificarUbicacion(a).grupo;
+    const gb = clasificarUbicacion(b).grupo;
+    if(ga!==gb) return ga.localeCompare(gb);
+    return a.localeCompare(b);
+  });
+
+  const el = document.getElementById('parcial-sector-chips');
+  if(!el) return;
+
+  // Agrupar visualmente
+  let grupoActual = '';
+  let html = '';
+  for(const sub of sorted){
+    const {grupo} = clasificarUbicacion(sub);
+    if(grupo!==grupoActual){
+      grupoActual = grupo;
+      html += `<div style="width:100%;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin:8px 0 4px;padding-top:4px;border-top:1px solid var(--border)">${grupo}</div>`;
+    }
+    const sel = parcialSectoresSeleccionados.has(sub);
+    // Contar stock en este subgrupo
+    const enStock = S.stock.filter(s=>clasificarUbicacion(s.boxatura).subgrupo===sub).length;
+    const colectado = [...S.colectas,...S.validFijas.filter(v=>v.resultado==='COINCIDE').map(v=>({box:v.ubicacion}))].filter(c=>clasificarUbicacion(c.box||c.ubicacion).subgrupo===sub).length;
+    html += `<button class="chip ${sel?'active':''}" 
+      onclick="parcialToggleSector('${sub}')" 
+      title="${enStock} en stock, ${colectado} colectados">
+      ${sub}
+      <span style="opacity:.6;margin-left:3px">${enStock}</span>
+    </button>`;
+  }
+  el.innerHTML = html;
+
+  const count = parcialSectoresSeleccionados.size;
+  const btn = document.getElementById('parcial-btn-analizar');
+  if(btn) btn.disabled = count===0;
+  const cnt = document.getElementById('parcial-sector-count');
+  if(cnt) cnt.textContent = count>0 ? `${count} sector${count>1?'es':''} seleccionado${count>1?'s':''}` : '';
+}
+
+function parcialToggleSector(sub){
+  if(parcialSectoresSeleccionados.has(sub)) parcialSectoresSeleccionados.delete(sub);
+  else parcialSectoresSeleccionados.add(sub);
+  parcialInit();
+}
+
+function parcialSelAll(){
+  // Seleccionar todos los chips visibles
+  const chips = document.querySelectorAll('#parcial-sector-chips .chip');
+  chips.forEach(c=>{
+    const sub = c.textContent.trim().split(/\s+/)[0];
+    if(sub) parcialSectoresSeleccionados.add(sub);
+  });
+  parcialInit();
+}
+
+function parcialClearAll(){
+  parcialSectoresSeleccionados.clear();
+  document.getElementById('parcial-resultados').style.display='none';
+  parcialInit();
+}
+
+function parcialAnalizar(){
+  if(parcialSectoresSeleccionados.size===0) return;
+  const sels = parcialSectoresSeleccionados;
+
+  // ── Mapa de colectas para los sectores seleccionados ──
+  // Incluye lotes/excel Y validaciones fija COINCIDE
+  const colectadoEnSector = {}; // vin → ubicacion_colectada
+  for(const c of S.colectas){
+    const {subgrupo} = clasificarUbicacion(c.box);
+    if(sels.has(subgrupo)) colectadoEnSector[c.vin] = c.box;
+  }
+  for(const vf of S.validFijas){
+    if(vf.resultado==='COINCIDE' && vf.vin_esperado){
+      const {subgrupo} = clasificarUbicacion(vf.ubicacion);
+      if(sels.has(subgrupo) && !colectadoEnSector[vf.vin_esperado])
+        colectadoEnSector[vf.vin_esperado] = vf.ubicacion;
+    }
+  }
+
+  // ── Stock en los sectores seleccionados ──
+  const stockEnSector = S.stock.filter(s=>sels.has(clasificarUbicacion(s.boxatura).subgrupo));
+
+  // ── Stock en otros sectores (para detectar desplazados) ──
+  const stockFueraSector = new Map();
+  for(const s of S.stock){
+    if(!sels.has(clasificarUbicacion(s.boxatura).subgrupo)) stockFueraSector.set(s.vin,s);
+  }
+
+  const vsStock = new Set(S.stock.map(s=>s.vin));
+  const vsProd  = new Set((window._vinsProd||[]).map(v=>v));
+
+  const res = [];
+  const vinsProcesados = new Set();
+
+  // A) Unidades que DEBERÍAN estar en los sectores seleccionados
+  for(const s of stockEnSector){
+    vinsProcesados.add(s.vin);
+    const ubicCol = colectadoEnSector[s.vin];
+    // También buscar si fue colectado en OTRO sector
+    const colFuera = S.colectas.find(c=>{
+      const {subgrupo}=clasificarUbicacion(c.box);
+      return c.vin===s.vin && !sels.has(subgrupo);
+    }) || S.validFijas.find(v=>{
+      const {subgrupo}=clasificarUbicacion(v.ubicacion);
+      return v.vin_esperado===s.vin && v.resultado==='COINCIDE' && !sels.has(subgrupo);
+    });
+
+    let estado, accion;
+    if(ubicCol){
+      // Fue encontrado en el sector
+      if(ubicCol===s.boxatura){ estado='OK'; accion='—'; }
+      else { estado='OK'; accion='Verificar ubicacion exacta'; }
+    } else if(colFuera){
+      // Fue encontrado pero en OTRO sector
+      const ubicFuera = colFuera.box||colFuera.ubicacion;
+      estado='MAL_UBICADO'; accion=`Reparquear de ${ubicFuera} → ${s.boxatura}`;
+      res.push({vin:s.vin,modelo:s.modelo,ubicStock:s.boxatura,ubicCol:ubicFuera,estado,accion,grupo:clasificarUbicacion(s.boxatura).subgrupo});
+      continue;
+    } else {
+      estado='NO_ENCONTRADO'; accion='Verificar físico o marcar VIR';
+    }
+    res.push({vin:s.vin,modelo:s.modelo,ubicStock:s.boxatura,ubicCol:ubicCol||null,estado,accion,grupo:clasificarUbicacion(s.boxatura).subgrupo});
+  }
+
+  // B) Unidades ENCONTRADAS en los sectores que NO deberían estar ahí
+  for(const [vin, ubicCol] of Object.entries(colectadoEnSector)){
+    if(vinsProcesados.has(vin)) continue; // ya procesado
+    vinsProcesados.add(vin);
+
+    let estado, accion, ubicStock='';
+    if(stockFueraSector.has(vin)){
+      // Está en stock pero en otra ubicación → mal ubicado (entró por el lado B)
+      const s = stockFueraSector.get(vin);
+      ubicStock = s.boxatura;
+      estado='MAL_UBICADO'; accion=`Reparquear de ${ubicCol} → ${s.boxatura}`;
+    } else if(vsStock.has(vin)){
+      // Está en stock en uno de los sectores seleccionados (no debería llegar acá)
+      estado='OK'; accion='—';
+    } else if(vsProd.has(vin)){
+      estado='DESCONOCIDO'; accion='En productivo, no en stock — verificar';
+    } else {
+      estado='DESCONOCIDO'; accion='No esta en stock ni productivo — verificar';
+    }
+    res.push({vin,modelo:'',ubicStock,ubicCol,estado,accion,grupo:clasificarUbicacion(ubicCol).subgrupo});
+  }
+
+  parcialResultados = res;
+  parcialFiltroActual = 'TODOS';
+  document.getElementById('parcial-resultados').style.display='';
+
+  // Titulo
+  const nombres = [...sels].join(', ');
+  document.getElementById('parcial-titulo').textContent = `Sectores: ${nombres}`;
+
+  // Stats
+  const ok=res.filter(r=>r.estado==='OK').length;
+  const mal=res.filter(r=>r.estado==='MAL_UBICADO').length;
+  const noEnc=res.filter(r=>r.estado==='NO_ENCONTRADO').length;
+  const extra=res.filter(r=>r.estado==='EXTRA').length;
+  const desc=res.filter(r=>r.estado==='DESCONOCIDO').length;
+  document.getElementById('parcial-stat-grid').innerHTML=`
+    <div class="stat-card"><div class="stat-val" style="color:var(--ok)">${ok}</div><div class="stat-lbl">OK</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--warn)">${mal}</div><div class="stat-lbl">Mal Ubicado</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--ko)">${noEnc}</div><div class="stat-lbl">No Encontrado</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--info)">${extra}</div><div class="stat-lbl">Extra</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--purple)">${desc}</div><div class="stat-lbl">Desconocido</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--accent)">${res.length}</div><div class="stat-lbl">Total analizado</div></div>
+  `;
+
+  // Resetear filtro chips
+  document.querySelectorAll('#page-parcial .chip').forEach(c=>c.classList.remove('active'));
+  const todosChip = document.querySelector('#page-parcial .chip');
+  if(todosChip) todosChip.classList.add('active');
+
+  parcialRenderTabla();
+  toast(`Analizados ${res.length} registros en ${sels.size} sector${sels.size>1?'es':''}`, 'ok');
+}
+
+function parcialSetFiltro(f, btn){
+  parcialFiltroActual = f;
+  document.querySelectorAll('#page-parcial .chip').forEach(c=>c.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  parcialRenderTabla();
+}
+
+function parcialRenderTabla(){
+  let data = [...parcialResultados];
+  if(parcialFiltroActual!=='TODOS') data=data.filter(r=>r.estado===parcialFiltroActual);
+
+  const ebP = (e,accion) => {
+    const map = {
+      OK:`<span class="badge b-ok">OK</span>`,
+      MAL_UBICADO:`<span class="badge b-warn">MAL UBICADO</span>`,
+      NO_ENCONTRADO:`<span class="badge b-ko">NO ENCONTRADO</span>`,
+      EXTRA:`<span class="badge b-info">EXTRA</span>`,
+      DESCONOCIDO:`<span class="badge b-vir">DESCONOCIDO</span>`,
+    };
+    return map[e]||`<span class="badge b-muted">${e}</span>`;
+  };
+
+  const MAX=300;
+  document.getElementById('parcial-tbody').innerHTML = data.slice(0,MAX).map(r=>`
+    <tr>
+      <td class="mono" style="font-size:11px">${r.vin}</td>
+      <td style="font-size:11px;color:var(--muted2);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.modelo||'—'}</td>
+      <td class="mono" style="color:var(--accent)">${r.ubicStock||'—'}</td>
+      <td class="mono" style="color:${r.ubicCol?'var(--text)':'var(--muted)'}">${r.ubicCol||'—'}</td>
+      <td>${ebP(r.estado)}</td>
+      <td style="font-size:11px;color:var(--muted2);max-width:200px">${r.accion}</td>
+    </tr>`).join('');
+
+  const more = document.getElementById('parcial-more');
+  if(data.length>MAX){ more.style.display=''; more.textContent=`Mostrando ${MAX} de ${data.length}.`; }
+  else more.style.display='none';
+}
+
+function parcialExportar(){
+  if(!parcialResultados.length){ toast('Sin resultados para exportar','warn'); return; }
+  const sectores = [...parcialSectoresSeleccionados].join('_');
+  const fecha = new Date().toLocaleDateString('es-AR');
+  const rows = parcialResultados.map(r=>({
+    VIN: r.vin, MODELO: r.modelo||'',
+    UBICACION_STOCK: r.ubicStock||'',
+    UBICACION_COLECTADA: r.ubicCol||'',
+    ESTADO: r.estado,
+    ACCION_SUGERIDA: r.accion,
+    SECTOR: r.grupo||'',
+  }));
+  // Hoja de datos
+  const wsData = [
+    ['STELLANTIS ARGENTINA — INVENTARIO PARCIAL','','','','','',''],
+    [`Inventario: ${S.invNombre} | Sectores: ${[...parcialSectoresSeleccionados].join(', ')} | Fecha: ${fecha}`,'','','','','',''],
+    [''],
+    ['VIN','MODELO','UBICACION STOCK','UBICACION COLECTADA','ESTADO','ACCION SUGERIDA','SECTOR'],
+    ...rows.map(r=>Object.values(r))
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  ws['!cols']=[{wch:20},{wch:20},{wch:16},{wch:18},{wch:16},{wch:35},{wch:12}];
+  ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:6}},{s:{r:1,c:0},e:{r:1,c:6}}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Parcial');
+  XLSX.writeFile(wb,`InvParcial_${sectores}_${fecha.replace(/\//g,'-')}.xlsx`);
+  toast('Exportado OK','ok');
+}
+
 // ═══════════════════════════════════════════════════════════
 // HELPER: detectar dispositivo táctil (más confiable que ROL)
 // ═══════════════════════════════════════════════════════════
@@ -2755,30 +3188,117 @@ function actualizarDonut(){
   renderSectorBars();
 }
 
+// ═══════════════════════════════════════════════════════════
+// GRUPOS DE PLAYAS
+// ═══════════════════════════════════════════════════════════
+function clasificarUbicacion(ub){
+  // Devuelve {grupo, subgrupo}
+  if(!ub) return {grupo:'SIN SECTOR',subgrupo:'?'};
+  const u = ub.trim().toUpperCase();
+  // Playa fija A/B/D/G → PLAYA INTERNA
+  if(/^[ABDG]\d/.test(u)) return {grupo:'PLAYA INTERNA', subgrupo:'Sector '+u[0]};
+  // L → EXTERNA L
+  if(/^L\d/.test(u)) return {grupo:'EXTERNA L', subgrupo:u.slice(0,2)};
+  // PRE → PREDIO ELTA
+  if(u.startsWith('PRE')) return {grupo:'PREDIO ELTA', subgrupo:u.match(/^PRE\d*/)?.[0]||'PRE'};
+  // BOX → BOX DE CARGA
+  if(u.startsWith('BOX')) return {grupo:'BOX DE CARGA', subgrupo:u.match(/^BOX[A-Z0-9]*/)?.[0]||'BOX'};
+  // F → grupo F
+  if(u.startsWith('F')) return {grupo:'GRUPO F', subgrupo:u.match(/^F[A-Z0-9]*/)?.[0]||'F'};
+  // K → grupo K
+  if(u.match(/^K\d/)) return {grupo:'LOTES K', subgrupo:u.match(/^K\d*/)?.[0]||'K'};
+  // C1, TELA y otros lotes conocidos
+  if(u==='C1'||u.startsWith('C')) return {grupo:'LOTES VARIOS', subgrupo:u};
+  if(u==='TELA') return {grupo:'LOTES VARIOS', subgrupo:'TELA'};
+  // Fallback
+  return {grupo:'OTROS', subgrupo:u.slice(0,4)};
+}
+
 function renderSectorBars(){
   const el = document.getElementById('dash-sector-bars');
   if(!el) return;
-  // Agrupar colectas por sector
-  const sectores = {};
-  for(const c of S.colectas){
-    const s = (c.sector||c.box||'?')[0].toUpperCase();
-    if(!sectores[s]) sectores[s]={col:0};
-    sectores[s].col++;
+
+  // Construir mapa: grupo → subgrupo → {stock, colectado}
+  const grupos = {};
+
+  // Contar stock por ubicacion
+  for(const s of S.stock){
+    const {grupo,subgrupo} = clasificarUbicacion(s.boxatura);
+    if(!grupos[grupo]) grupos[grupo]={stock:0,col:0,subs:{}};
+    grupos[grupo].stock++;
+    if(!grupos[grupo].subs[subgrupo]) grupos[grupo].subs[subgrupo]={stock:0,col:0};
+    grupos[grupo].subs[subgrupo].stock++;
   }
-  const total = S.stock.length || 1;
-  const entries = Object.entries(sectores).sort((a,b)=>b[1].col-a[1].col).slice(0,6);
-  if(!entries.length){ el.innerHTML='<div style="font-size:11px;color:var(--muted)">Sin colectas aun</div>'; return; }
-  const max = Math.max(...entries.map(e=>e[1].col));
-  el.innerHTML = entries.map(([s,d])=>{
-    const pct = Math.round((d.col/max)*100);
-    return `<div style="display:flex;align-items:center;gap:8px">
-      <span style="font-size:11px;font-family:var(--mono);color:var(--accent);min-width:20px">${s}</span>
-      <div style="flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden">
-        <div style="height:100%;width:${pct}%;background:var(--accent);border-radius:4px;transition:width .5s"></div>
+
+  // Contar colectados (incluye fija)
+  for(const r of S.resultados){
+    if(!r.ubicacionPlaya) continue;
+    // Usar ubicacion del stock para clasificar (no la playa)
+    const ub = r.ubicacionStock || r.ubicacionPlaya;
+    const {grupo,subgrupo} = clasificarUbicacion(ub);
+    if(!grupos[grupo]) grupos[grupo]={stock:0,col:0,subs:{}};
+    if(!grupos[grupo].subs[subgrupo]) grupos[grupo].subs[subgrupo]={stock:0,col:0};
+    if(r.estado==='OK'||r.estado==='UBICACION_INCORRECTA'){
+      grupos[grupo].col++;
+      grupos[grupo].subs[subgrupo].col++;
+    }
+  }
+
+  if(!Object.keys(grupos).length){
+    el.innerHTML='<div style="font-size:11px;color:var(--muted)">Sin colectas aun</div>';
+    return;
+  }
+
+  // Ordenar grupos por stock desc
+  const sortedGrupos = Object.entries(grupos).sort((a,b)=>b[1].stock-a[1].stock);
+
+  el.innerHTML = sortedGrupos.map(([grupo, gd])=>{
+    const pctG = gd.stock>0 ? Math.round((gd.col/gd.stock)*100) : 0;
+    const colorG = pctG===100?'var(--ok)':pctG>50?'var(--accent)':'var(--ko)';
+    // Subgrupos
+    const sortedSubs = Object.entries(gd.subs).sort((a,b)=>b[1].stock-a[1].stock);
+    const subsHtml = sortedSubs.map(([sub,sd])=>{
+      const pct = sd.stock>0 ? Math.round((sd.col/sd.stock)*100) : 0;
+      const color = pct===100?'var(--ok)':pct>50?'var(--accent)':'var(--muted2)';
+      // Indicador de faltante
+      const falta = sd.stock - sd.col;
+      return `<div style="display:flex;align-items:center;gap:6px;padding:2px 0 2px 12px">
+        <span style="font-size:10px;font-family:var(--mono);color:var(--muted2);min-width:50px;white-space:nowrap">${sub}</span>
+        <div style="flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:${color};border-radius:3px;transition:width .6s"></div>
+        </div>
+        <span style="font-size:10px;color:${color};min-width:36px;text-align:right">${pct}%</span>
+        ${falta>0?`<span style="font-size:9px;color:var(--muted);min-width:36px">-${falta}</span>`:'<span style="font-size:9px;color:var(--ok);min-width:36px">✓</span>'}
+      </div>`;
+    }).join('');
+
+    return `<div style="margin-bottom:8px">
+      <!-- Grupo header -->
+      <div style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="toggleGrupo('grupo-${grupo.replace(/\s+/g,'-')}')">
+        <span style="font-size:10px;font-weight:800;letter-spacing:1px;color:${colorG};min-width:110px;text-transform:uppercase">${grupo}</span>
+        <div style="flex:1;height:7px;background:var(--border);border-radius:4px;overflow:hidden">
+          <div style="height:100%;width:${pctG}%;background:${colorG};border-radius:4px;transition:width .6s"></div>
+        </div>
+        <span style="font-size:11px;font-weight:700;color:${colorG};min-width:40px;text-align:right">${pctG}%</span>
+        <span style="font-size:10px;color:var(--muted)">${gd.col}/${gd.stock}</span>
+        <span style="font-size:10px;color:var(--muted)">▾</span>
       </div>
-      <span style="font-size:11px;color:var(--muted2);min-width:30px;text-align:right">${d.col}</span>
+      <!-- Subgrupos (colapsables) -->
+      <div id="grupo-${grupo.replace(/\s+/g,'-')}" style="overflow:hidden;max-height:0;transition:max-height .3s ease">
+        <div style="padding-top:4px">${subsHtml}</div>
+      </div>
     </div>`;
   }).join('');
+}
+
+function toggleGrupo(id){
+  const el=document.getElementById(id);
+  if(!el) return;
+  if(el.style.maxHeight==='0px'||!el.style.maxHeight){
+    el.style.maxHeight=el.scrollHeight+200+'px';
+  } else {
+    el.style.maxHeight='0px';
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
