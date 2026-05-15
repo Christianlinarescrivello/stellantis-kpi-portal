@@ -200,6 +200,28 @@ tr:hover td{background:rgba(255,255,255,.015)}
   <div style="margin-bottom:10px"><label class="lbl">Tu nombre / colector</label><input id="op-nombre" class="inp" placeholder="Ej: Juan - Colector 1" autocomplete="off"></div>
   <div class="modal-actions"><button class="btn btn-primary" onclick="setOperario()">Confirmar</button></div>
 </div></div>
+<!-- MODAL FOTO CHAPELONA -->
+<div id="modal-foto" class="modal-overlay hidden">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-title" style="color:var(--warn)">&#9888; VIN Desconocido — Foto requerida</div>
+    <div style="font-size:13px;color:var(--muted2);margin-bottom:14px;line-height:1.6">Este VIN no figura en el stock ni en produccion. Para registrarlo es obligatorio adjuntar una foto de la chapelona.</div>
+    <div id="foto-vin-info" style="font-family:var(--mono);font-size:14px;font-weight:700;color:var(--accent);margin-bottom:14px;padding:8px 12px;background:rgba(200,164,86,.08);border:1px solid rgba(200,164,86,.2);border-radius:4px"></div>
+    <div id="foto-preview-wrap" style="margin-bottom:12px">
+      <div id="foto-placeholder" style="height:160px;background:var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;cursor:pointer;border:2px dashed var(--border2)" onclick="fotoCapturar()">
+        <span style="font-size:32px">&#128247;</span>
+        <span style="font-size:13px;color:var(--muted2)">Tocar para sacar foto</span>
+      </div>
+      <img id="foto-preview" style="display:none;width:100%;border-radius:6px;max-height:220px;object-fit:contain;border:2px solid var(--ok)" src="" alt="foto">
+      <input type="file" id="foto-input" accept="image/*" capture="environment" style="display:none" onchange="fotoSeleccionada(this)">
+    </div>
+    <div id="foto-status" style="font-size:12px;color:var(--muted2);margin-bottom:10px;min-height:16px"></div>
+    <div style="margin-bottom:10px"><label class="lbl">Notas adicionales (opcional)</label><input id="foto-notas" class="inp" placeholder="Ej: chapelona deteriorada, sin placa..." autocomplete="off"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="fotoCancelar()">Cancelar</button>
+      <button id="foto-confirmar-btn" class="btn btn-primary" onclick="fotoConfirmar()" disabled>Confirmar con foto</button>
+    </div>
+  </div>
+</div>
 <div id="modal-manual" class="modal-overlay hidden"><div class="modal">
   <div class="modal-title">Ingreso Manual de VIN</div>
   <div style="font-size:12px;color:var(--muted2);margin-bottom:14px">Ultimos 5-6 digitos para buscar, o VIN completo (min. 6 caracteres)</div>
@@ -243,7 +265,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
       <span class="rol-badge rol-colector">COLECTOR</span>
-          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v2.9</span>
+          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v3.0</span>
       <div style="font-size:11px;color:var(--muted2)" id="col-operario-txt" onclick="openModal('modal-operario')" style="cursor:pointer">Toca para identificarte</div>
     </div>
   </div>
@@ -440,8 +462,9 @@ tr:hover td{background:rgba(255,255,255,.015)}
     <div class="tb-right">
       <div class="tb-op" id="tb-op" onclick="openModal('modal-operario')">Sin identificar</div>
       <span class="rol-badge rol-admin" id="tb-rol-badge" style="display:none">ADMIN</span>
-      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v2.9</span>
+      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v3.0</span>
       <button class="theme-toggle" onclick="toggleTheme()" title="Modo claro/oscuro" id="theme-btn">&#9788;</button>
+      <button class="theme-toggle" onclick="solicitarNotificaciones()" id="notif-btn" title="Activar notificaciones push" style="display:none">&#9993;</button>
       <button class="btn btn-secondary btn-sm" id="btn-qr" onclick="openQRModal()" style="display:none" title="QR de acceso para colectores">QR</button>
       <button class="btn btn-secondary btn-sm" id="btn-pdf" onclick="generarPDF()" style="display:none">PDF</button>
       <button class="btn btn-primary btn-sm" onclick="openModal('modal-inv')">+ Inventario</button>
@@ -467,6 +490,8 @@ tr:hover td{background:rgba(255,255,255,.015)}
       <div class="nav-item" onclick="showPage('parqueo')" id="nav-parqueo"><span class="nav-icon">&#9646;</span> Parqueo<span class="nav-badge amber" id="badge-parqueo" style="display:none">0</span></div>
       <div class="nav-section">Produccion</div>
       <div class="nav-item" onclick="showPage('produccion')" id="nav-produccion"><span class="nav-icon">&#9881;</span> Produccion<span class="nav-badge" id="badge-prod">0</span></div>
+      <div class="nav-section">Analisis</div>
+      <div class="nav-item disabled" onclick="showPage('reporte')" id="nav-reporte"><span class="nav-icon">&#9650;</span> Reporte Ops.</div>
       <div class="nav-section">Tiempo Real</div>
       <div class="nav-item disabled" onclick="showPage('actividad')" id="nav-actividad"><span class="nav-icon">&#9673;</span> Actividad</div>
     </div>
@@ -989,6 +1014,30 @@ tr:hover td{background:rgba(255,255,255,.015)}
       </div>
 
       <!-- ACTIVIDAD -->
+      <!-- REPORTE OPERADORES -->
+      <div class="page" id="page-reporte">
+        <div class="page-title">Reporte de Operadores</div>
+        <div class="page-sub">Rendimiento y actividad de cada colector en el inventario activo</div>
+        <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+          <input id="rep-fecha-desde" type="date" class="inp" style="max-width:160px;font-size:12px;padding:5px 8px" onchange="renderReporte()">
+          <input id="rep-fecha-hasta" type="date" class="inp" style="max-width:160px;font-size:12px;padding:5px 8px" onchange="renderReporte()">
+          <button class="btn btn-secondary btn-sm" onclick="repSetHoy()">Hoy</button>
+          <button class="btn btn-secondary btn-sm" onclick="repSetTodo()">Todo el inventario</button>
+          <button class="btn btn-secondary btn-sm" onclick="exportarReporte()" style="margin-left:auto">Exportar</button>
+        </div>
+        <!-- Cards por operador -->
+        <div id="rep-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-bottom:14px"></div>
+        <!-- Tabla detallada -->
+        <div class="card" style="padding:0">
+          <div style="padding:10px 16px;border-bottom:1px solid var(--border);font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase">Detalle por lote / sesion</div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Operario</th><th>Sector / Lote</th><th>VINs</th><th>Tipo</th><th>Fecha</th><th>Duracion est.</th></tr></thead>
+              <tbody id="rep-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
       <div class="page" id="page-actividad">
         <div class="page-title">Actividad en Tiempo Real</div><div class="page-sub">Acciones de todos los colectores conectados</div>
         <div class="card">
@@ -1053,6 +1102,7 @@ async function init(){
   loadOQ();
   initTheme();
   checkURLParams();
+  initNotificaciones();
   ROL = window.innerWidth < 1024 ? 'colector' : 'admin';
   aplicarRol();
   if(S.operario){ document.getElementById('tb-op').textContent=S.operario; document.getElementById('col-operario-txt').textContent=S.operario; }
@@ -1069,7 +1119,7 @@ async function init(){
   updateOfflineUI(); colUpdateOfflineUI();
   if(S.isOnline&&S.offlineQueue.length>0) syncOQ();
 }
-function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.getElementById('nav-'+id).classList.add('active');if(id==='resultados')renderResultados();if(id==='observaciones')renderObs();if(id==='produccion'){cargarProduccion().then(()=>prodRenderTabla());}if(id==='parqueo'){pqFiltrar('');pqUpdateStats();}if(id==='dashboard')iniciarCampo();if(id==='parcial'){parcialInit();}if(id==='buscador')setTimeout(()=>document.getElementById('buscar-inp').focus(),100);if(id==='lote')loteRenderCheck();}
+function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.getElementById('nav-'+id).classList.add('active');if(id==='resultados')renderResultados();if(id==='observaciones')renderObs();if(id==='produccion'){cargarProduccion().then(()=>prodRenderTabla());}if(id==='parqueo'){pqFiltrar('');pqUpdateStats();}if(id==='dashboard')iniciarCampo();if(id==='parcial'){parcialInit();}if(id==='reporte'){repSetHoy();renderReporte();}if(id==='buscador')setTimeout(()=>document.getElementById('buscar-inp').focus(),100);if(id==='lote')loteRenderCheck();}
 function openModal(id){document.getElementById(id).classList.remove('hidden');}
 function closeModal(id){document.getElementById(id).classList.add('hidden');}
 function setOperario(){const v=document.getElementById('op-nombre').value.trim();if(!v)return;S.operario=v;localStorage.setItem('st_op',v);document.getElementById('tb-op').textContent=v;document.getElementById('col-operario-txt').textContent=v;closeModal('modal-operario');toast('Identificado: '+v);}
@@ -1098,7 +1148,7 @@ async function cargarInventario(id){
   S.invId=id;S.invNombre=inv.nombre;S.invFecha=inv.fecha;
   localStorage.setItem('st_inv_id',id);localStorage.setItem('st_inv_nombre',inv.nombre);localStorage.setItem('st_inv_fecha',inv.fecha);
   document.getElementById('inv-sep').style.display='';document.getElementById('tb-inv-name').style.display='';document.getElementById('tb-inv-name').textContent=inv.nombre;document.getElementById('tb-inv-date').style.display='';document.getElementById('tb-inv-date').textContent=inv.fecha;document.getElementById('btn-pdf').style.display='';document.getElementById('btn-qr').style.display='';
-  ['dashboard','buscador','lote','scanner','resultados','parcial','observaciones','actividad'].forEach(p=>document.getElementById('nav-'+p).classList.remove('disabled'));
+  ['dashboard','buscador','lote','scanner','resultados','parcial','reporte','observaciones','actividad'].forEach(p=>document.getElementById('nav-'+p).classList.remove('disabled'));
   await Promise.all([cargarStock(),cargarColectas(),cargarValidFijas(),cargarObservaciones(),cargarProduccion()]);
   cargarVinsProd().then(()=>calcularResultados()).then(()=>updateStats()); // cruce con productivo
   calcularResultados();updateStats();cargarPlayaLista();
@@ -1299,7 +1349,7 @@ function loteConflictoRechazar(){pendingConflictVin=null;document.getElementById
 function loteAgregarConfirmado(vin){vibrar('scan');S.loteActivo.vins.unshift({vin,ts:Date.now()});document.getElementById('lote-counter').textContent=S.loteActivo.vins.length;document.getElementById('lote-undo-btn').disabled=false;loteRenderList();document.getElementById('lote-scan-inp').focus();}
 function loteDeshacer(){if(!S.loteActivo||S.loteActivo.vins.length===0)return;const r=S.loteActivo.vins.shift();document.getElementById('lote-counter').textContent=S.loteActivo.vins.length;if(S.loteActivo.vins.length===0)document.getElementById('lote-undo-btn').disabled=true;loteRenderList();toast('Removido: '+r.vin.slice(-7));}
 function loteRenderList(){const el=document.getElementById('lote-vin-list');if(!S.loteActivo||S.loteActivo.vins.length===0){el.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:20px 0">Sin VINs aun</div>';return;}el.innerHTML=S.loteActivo.vins.map((v,i)=>`<div class="lote-vin-item"><span style="font-size:10px;color:var(--muted);min-width:22px">${i+1}</span><span class="lote-vin-txt">${v.vin}</span><span style="font-size:9px;color:var(--muted)">${v.vin.slice(-7)}</span></div>`).join('');}
-async function loteConfirmar(){if(!S.loteActivo||S.loteActivo.vins.length===0){toast('No hay VINs en el lote','warn');return;}const{nombre,vins}=S.loteActivo;await subirColectaBulk(vins,nombre);S.loteActivo=null;document.getElementById('badge-lote').style.display='none';loteRenderCheck();}
+async function loteConfirmar(){if(!S.loteActivo||S.loteActivo.vins.length===0){toast('No hay VINs en el lote','warn');return;}const{nombre,vins}=S.loteActivo;await subirColectaBulk(vins,nombre);enviarNotificacion('Lote confirmado',''+nombre+': '+vins.length+' unidades por '+(S.operario||'Colector'),'lote');S.loteActivo=null;document.getElementById('badge-lote').style.display='none';loteRenderCheck();}
 function loteCancelar(){if(!confirm('Cancelar lote '+S.loteActivo?.nombre+'?'))return;S.loteActivo=null;document.getElementById('badge-lote').style.display='none';loteRenderCheck();}
 function openManualModal(ctx){manualCallback=ctx;manualSelectedVin=null;document.getElementById('manual-inp').value='';document.getElementById('manual-suggestions').innerHTML='';document.getElementById('manual-selected').style.display='none';document.getElementById('manual-confirm-btn').disabled=true;openModal('modal-manual');setTimeout(()=>document.getElementById('manual-inp').focus(),150);}
 function manualBuscar(val){
@@ -1473,7 +1523,7 @@ function handleFile(input,type){processFile(input.files[0],type);input.value='';
 function processFile(file,type){if(!file)return;if(!S.invId){toast('Primero crea un inventario','warn');return;}const reader=new FileReader();reader.onload=async(e)=>{const wb=XLSX.read(e.target.result,{type:'binary'});const ws=wb.Sheets[wb.SheetNames[0]];const data=XLSX.utils.sheet_to_json(ws);if(type==='stock')await subirStock(data);else{const sector=document.getElementById('playa-sector').value.trim();if(!sector){toast('Ingresa el nombre del sector','warn');return;}await subirColectaExcel(data,sector,file.name);}};reader.readAsBinaryString(file);}
 function setupRealtime(){
   sb.channel('inv-ch')
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'validaciones_fijas'},async(p)=>{if(p.new.inventario_id!==S.invId)return;const v=p.new;S.validFijas=S.validFijas.filter(x=>x.ubicacion!==v.ubicacion);S.validFijas.push(v);localStorage.setItem('st_vf_'+S.invId,JSON.stringify(S.validFijas));calcularResultados();updateStats();logActividad(`<span>${v.operario||'Colector'}</span> valido <span>${v.ubicacion}</span> - ${v.resultado}`);})
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'validaciones_fijas'},async(p)=>{if(p.new.inventario_id!==S.invId)return;const v=p.new;S.validFijas=S.validFijas.filter(x=>x.ubicacion!==v.ubicacion);S.validFijas.push(v);localStorage.setItem('st_vf_'+S.invId,JSON.stringify(S.validFijas));calcularResultados();updateStats();if(v.resultado==='COINCIDE')enviarNotificacion('Validacion recibida',`${v.ubicacion}: COINCIDE (${v.operario||'Colector'})`,'validacion');logActividad(`<span>${v.operario||'Colector'}</span> valido <span>${v.ubicacion}</span> - ${v.resultado}`);})
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'colectas'},async(p)=>{if(p.new.inventario_id!==S.invId)return;await cargarColectas();calcularResultados();updateStats();cargarPlayaLista();logActividad(`<span>${p.new.operario||'Colector'}</span> cargo <span>${p.new.archivo||p.new.sector}</span>`);})
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'parqueos'},async(p)=>{
       const exists=pqData.find(x=>x.id===p.new.id);
@@ -2292,6 +2342,7 @@ async function pqGuardar(){
     if(idx>=0) pqData[idx]={...pqData[idx], id:data.id};
     localStorage.setItem('st_pq', JSON.stringify(pqData));
     logActividad(`<span>${S.operario||'Operador'}</span> parqueo <span>${registro.chass}</span> en <span>${ubicacion}</span>`);
+  enviarNotificacion('Parqueo registrado',`${registro.chass} → ${ubicacion} (${S.operario||'Operador'})`,'parqueo');
   } else {
     S.offlineQueue.push({type:'parqueo', d:registro, ts:Date.now()});
     saveOQ(); toast('Sin conexion - guardado offline','warn'); return;
@@ -2701,6 +2752,7 @@ async function colLoteConfirmar(){
   if(!S.loteActivo||S.loteActivo.vins.length===0){ toast('No hay VINs en el lote','warn'); return; }
   const {nombre,vins} = S.loteActivo;
   await subirColectaBulk(vins,nombre);
+  enviarNotificacion('Lote confirmado',''+nombre+': '+vins.length+' unidades por '+(S.operario||'Colector'),'lote');
   S.loteActivo=null;
   document.getElementById('badge-lote').style.display='none';
   colLoteRenderCheck();
@@ -3124,6 +3176,338 @@ function parcialExportar(){
   XLSX.writeFile(wb,`InvParcial_${sectores}_${fecha.replace(/\//g,'-')}.xlsx`);
   toast('Exportado OK','ok');
 }
+
+
+// ═══════════════════════════════════════════════════════════
+// NOTIFICACIONES PUSH
+// ═══════════════════════════════════════════════════════════
+let notifPermiso = false;
+
+async function initNotificaciones(){
+  if(!('Notification' in window)) return;
+  const btn = document.getElementById('notif-btn');
+  if(btn) btn.style.display='';
+  if(Notification.permission==='granted'){
+    notifPermiso=true;
+    if(btn){ btn.title='Notificaciones activas'; btn.style.color='var(--ok)'; }
+  }
+}
+
+async function solicitarNotificaciones(){
+  if(!('Notification' in window)){ toast('Tu navegador no soporta notificaciones','warn'); return; }
+  const perm = await Notification.requestPermission();
+  notifPermiso = perm==='granted';
+  const btn = document.getElementById('notif-btn');
+  if(notifPermiso){
+    btn.style.color='var(--ok)'; btn.title='Notificaciones activas';
+    toast('Notificaciones activadas','ok');
+    // Test
+    new Notification('STELLANTIS', {body:'Notificaciones activadas correctamente', icon:'', tag:'test'});
+  } else {
+    toast('Permiso denegado — activalas desde la config del navegador','warn');
+  }
+}
+
+function enviarNotificacion(titulo, cuerpo, tag='stellantis'){
+  if(!notifPermiso) return;
+  if(document.hasFocus()) return; // no molestar si la ventana esta activa
+  try{
+    new Notification('STELLANTIS — '+titulo, {body:cuerpo, tag, requireInteraction:false});
+  }catch(e){}
+}
+
+// ═══════════════════════════════════════════════════════════
+// REPORTE DE OPERADORES
+// ═══════════════════════════════════════════════════════════
+function repSetHoy(){
+  const hoy = new Date().toISOString().slice(0,10);
+  document.getElementById('rep-fecha-desde').value=hoy;
+  document.getElementById('rep-fecha-hasta').value=hoy;
+  renderReporte();
+}
+function repSetTodo(){
+  document.getElementById('rep-fecha-desde').value='';
+  document.getElementById('rep-fecha-hasta').value='';
+  renderReporte();
+}
+
+function renderReporte(){
+  const desde = document.getElementById('rep-fecha-desde')?.value||'';
+  const hasta = document.getElementById('rep-fecha-hasta')?.value||'';
+
+  // Filtrar colectas por fecha
+  let cols = [...S.colectas];
+  if(desde) cols=cols.filter(c=>!c.creado_en||c.creado_en.slice(0,10)>=desde);
+  if(hasta) cols=cols.filter(c=>!c.creado_en||c.creado_en.slice(0,10)<=hasta);
+
+  // Agrupar por operario → archivos (lotes)
+  const ops = {};
+  for(const c of cols){
+    const op = c.operario||'Sin identificar';
+    if(!ops[op]) ops[op]={vins:new Set(),archivos:{},errores:0,ok:0};
+    ops[op].vins.add(c.vin);
+    const arch = c.archivo||c.sector||'Desconocido';
+    if(!ops[op].archivos[arch]) ops[op].archivos[arch]={vins:0,fecha:c.creado_en||''};
+    ops[op].archivos[arch].vins++;
+  }
+
+  // Cruzar con resultados para calcular tasa de éxito
+  for(const [op, data] of Object.entries(ops)){
+    for(const vin of data.vins){
+      const r = S.resultados.find(x=>x.vin===vin);
+      if(r){
+        if(r.estado==='OK') data.ok++;
+        else if(r.estado==='UBICACION_INCORRECTA') data.errores++;
+      }
+    }
+  }
+
+  // También incluir validaciones fija por operario
+  const valOps = {};
+  for(const vf of S.validFijas){
+    const op = vf.operario||'Sin identificar';
+    if(!valOps[op]) valOps[op]={coincide:0,ko:0,vacios:0};
+    if(vf.resultado==='COINCIDE') valOps[op].coincide++;
+    else if(vf.resultado==='OTRO_VIN'||vf.resultado==='VACIO_INESPERADO') valOps[op].ko++;
+    else if(vf.resultado==='VACIO_OK') valOps[op].vacios++;
+  }
+
+  const cardsEl = document.getElementById('rep-cards');
+  if(!cardsEl) return;
+
+  if(!Object.keys(ops).length && !Object.keys(valOps).length){
+    cardsEl.innerHTML='<div style="font-size:13px;color:var(--muted);padding:20px">Sin actividad en el periodo seleccionado</div>';
+    document.getElementById('rep-tbody').innerHTML='';
+    return;
+  }
+
+  // Unir todos los operarios
+  const todosOps = new Set([...Object.keys(ops),...Object.keys(valOps)]);
+  const colores=['var(--accent)','var(--ok)','var(--info)','var(--purple)','var(--warn)'];
+
+  cardsEl.innerHTML = [...todosOps].map((op,idx)=>{
+    const d = ops[op]||{vins:new Set(),archivos:{},ok:0,errores:0};
+    const v = valOps[op]||{coincide:0,ko:0,vacios:0};
+    const totalVins = d.vins.size;
+    const totalLotes = Object.keys(d.archivos).length;
+    const tasaOk = totalVins>0 ? Math.round((d.ok/totalVins)*100) : 0;
+    const color = colores[idx%colores.length];
+    return `<div class="card" style="border-top:3px solid ${color}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+        <div>
+          <div style="font-size:16px;font-weight:800;color:${color}">${op}</div>
+          <div style="font-size:11px;color:var(--muted2);margin-top:2px">${totalLotes} lote${totalLotes!==1?'s':''} colectado${totalLotes!==1?'s':''}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:28px;font-weight:800;color:${color};font-family:var(--mono)">${totalVins}</div>
+          <div style="font-size:9px;color:var(--muted);letter-spacing:1px">VINS TOTALES</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;text-align:center">
+        <div style="background:rgba(34,197,94,.08);border-radius:4px;padding:8px">
+          <div style="font-size:18px;font-weight:800;color:var(--ok)">${d.ok}</div>
+          <div style="font-size:9px;color:var(--muted)">OK CRUCE</div>
+        </div>
+        <div style="background:rgba(239,68,68,.08);border-radius:4px;padding:8px">
+          <div style="font-size:18px;font-weight:800;color:var(--ko)">${d.errores}</div>
+          <div style="font-size:9px;color:var(--muted)">KO CRUCE</div>
+        </div>
+        <div style="background:rgba(200,164,86,.08);border-radius:4px;padding:8px">
+          <div style="font-size:18px;font-weight:800;color:var(--accent)">${tasaOk}%</div>
+          <div style="font-size:9px;color:var(--muted)">TASA OK</div>
+        </div>
+      </div>
+      ${v.coincide+v.ko>0?`
+      <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Playa Fija</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;text-align:center">
+        <div style="font-size:12px;color:var(--ok)">${v.coincide} <span style="font-size:9px;color:var(--muted)">coincide</span></div>
+        <div style="font-size:12px;color:var(--ko)">${v.ko} <span style="font-size:9px;color:var(--muted)">KO</span></div>
+        <div style="font-size:12px;color:var(--info)">${v.vacios} <span style="font-size:9px;color:var(--muted)">vacíos</span></div>
+      </div>`:''}
+      <div style="height:3px;background:var(--border);border-radius:2px;margin-top:10px;overflow:hidden">
+        <div style="height:100%;width:${tasaOk}%;background:${color};border-radius:2px;transition:width .5s"></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Tabla detallada de lotes
+  const filas = [];
+  for(const [op, data] of Object.entries(ops)){
+    for(const [arch, ad] of Object.entries(data.archivos)){
+      filas.push({op, arch, vins:ad.vins, fecha:ad.fecha, tipo:'LOTE'});
+    }
+  }
+  filas.sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
+
+  document.getElementById('rep-tbody').innerHTML = filas.slice(0,100).map(f=>`
+    <tr>
+      <td style="font-size:12px;font-weight:700;color:var(--accent)">${f.op}</td>
+      <td style="font-size:12px;font-family:var(--mono)">${f.arch}</td>
+      <td style="font-size:12px;font-weight:700">${f.vins}</td>
+      <td><span class="badge b-info">${f.tipo}</span></td>
+      <td style="font-size:11px;color:var(--muted2)">${f.fecha?new Date(f.fecha).toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'-'}</td>
+      <td style="font-size:11px;color:var(--muted2)">—</td>
+    </tr>`).join('');
+}
+
+function exportarReporte(){
+  const rows=[];
+  for(const [op,data] of Object.entries({})){rows.push({OPERARIO:op});}
+  // Simplified export
+  const cols=[...S.colectas];
+  const byOp={};
+  for(const c of cols){
+    const op=c.operario||'Sin identificar';
+    if(!byOp[op])byOp[op]=[];
+    byOp[op].push({OPERARIO:op,LOTE:c.archivo||c.sector||'',VIN:c.vin,BOX:c.box||'',FECHA:c.creado_en?new Date(c.creado_en).toLocaleString('es-AR'):''});
+  }
+  const allRows=Object.values(byOp).flat();
+  if(!allRows.length){toast('Sin datos','warn');return;}
+  const ws=XLSX.utils.json_to_sheet(allRows);
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Reporte');
+  XLSX.writeFile(wb,`Reporte_Operadores_${S.invNombre.replace(/\s+/g,'_')}.xlsx`);
+  toast('Exportado OK','ok');
+}
+
+// ═══════════════════════════════════════════════════════════
+// FOTO DE CHAPELONA
+// ═══════════════════════════════════════════════════════════
+let fotoVinPendiente = null;
+let fotoCallbackCtx = null;
+let fotoBase64 = null;
+
+function necesitaFoto(vin){
+  // Verificar si el VIN es desconocido (no en stock ni en produccion)
+  const enStock = S.stock.find(s=>s.vin===vin);
+  if(enStock) return false;
+  const enProd = (window._vinsProd||[]).includes(vin);
+  if(enProd) return false;
+  return true; // desconocido — requiere foto
+}
+
+function abrirModalFoto(vin, contexto){
+  fotoVinPendiente = vin;
+  fotoCallbackCtx = contexto;
+  fotoBase64 = null;
+  document.getElementById('foto-vin-info').textContent = vin;
+  document.getElementById('foto-preview').style.display='none';
+  document.getElementById('foto-placeholder').style.display='flex';
+  document.getElementById('foto-confirmar-btn').disabled=true;
+  document.getElementById('foto-status').textContent='';
+  document.getElementById('foto-notas').value='';
+  openModal('modal-foto');
+}
+
+function fotoCapturar(){
+  document.getElementById('foto-input').click();
+}
+
+function fotoSeleccionada(input){
+  const file = input.files[0];
+  if(!file) return;
+  // Comprimir a max 800px y calidad 0.7
+  const reader = new FileReader();
+  reader.onload = e=>{
+    const img = new Image();
+    img.onload = ()=>{
+      const canvas = document.createElement('canvas');
+      const MAX=800;
+      let w=img.width,h=img.height;
+      if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}
+      if(h>MAX){w=Math.round(w*MAX/h);h=MAX;}
+      canvas.width=w; canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      fotoBase64 = canvas.toDataURL('image/jpeg',0.75).split(',')[1];
+      document.getElementById('foto-preview').src='data:image/jpeg;base64,'+fotoBase64;
+      document.getElementById('foto-preview').style.display='';
+      document.getElementById('foto-placeholder').style.display='none';
+      document.getElementById('foto-confirmar-btn').disabled=false;
+      document.getElementById('foto-status').textContent=`Foto lista (${Math.round(fotoBase64.length*0.75/1024)}KB)`;
+      document.getElementById('foto-status').style.color='var(--ok)';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function fotoConfirmar(){
+  if(!fotoBase64||!fotoVinPendiente) return;
+  const notas = document.getElementById('foto-notas').value.trim();
+  const btn = document.getElementById('foto-confirmar-btn');
+  btn.disabled=true; btn.textContent='Guardando...';
+
+  try{
+    // Guardar foto en Supabase Storage
+    let fotoUrl = null;
+    if(S.isOnline){
+      const fileName=`chapelona_${fotoVinPendiente}_${Date.now()}.jpg`;
+      const blob = await fetch('data:image/jpeg;base64,'+fotoBase64).then(r=>r.blob());
+      const{data:up,error:ue}=await sb.storage.from('chapelones').upload(fileName,blob,{contentType:'image/jpeg',upsert:true});
+      if(!ue){
+        const{data:urlData}=sb.storage.from('chapelones').getPublicUrl(fileName);
+        fotoUrl=urlData?.publicUrl;
+      }
+    }
+    // Guardar registro en observaciones con foto
+    const obs={
+      inventario_id:S.invId,
+      vin:fotoVinPendiente,
+      tipo:'VERIFICAR FISICO',
+      texto:`VIN DESCONOCIDO — Requiere verificacion. ${notas?'Nota: '+notas:''}${fotoUrl?' Foto: '+fotoUrl:''}`,
+      operario:S.operario||'',
+      creado_en:new Date().toISOString()
+    };
+    S.observaciones.unshift(obs);
+    try{localStorage.setItem('st_obs_'+S.invId,JSON.stringify(S.observaciones));}catch(e){}
+    await queueOrSend('obs',obs);
+    document.getElementById('badge-obs').textContent=S.observaciones.length;
+
+    closeModal('modal-foto');
+    toast('Foto y registro guardados','ok');
+
+    // Continuar con el flujo original
+    if(fotoCallbackCtx==='lote') loteAgregarConfirmado(fotoVinPendiente);
+    else if(fotoCallbackCtx==='col-lote') colLoteAgregarConfirmado(fotoVinPendiente);
+    else if(fotoCallbackCtx==='pq') pqContinuarConFoto(fotoVinPendiente);
+    else if(fotoCallbackCtx==='parcial') parcialContinuarConFoto(fotoVinPendiente);
+
+    fotoVinPendiente=null; fotoCallbackCtx=null; fotoBase64=null;
+  }catch(e){
+    btn.disabled=false; btn.textContent='Confirmar con foto';
+    toast('Error al guardar: '+e.message,'ko');
+  }
+}
+
+function fotoCancelar(){
+  closeModal('modal-foto');
+  fotoVinPendiente=null; fotoCallbackCtx=null; fotoBase64=null;
+  toast('Registro cancelado','warn');
+}
+
+function pqContinuarConFoto(vin){ pqVinSel={vin,chass:vin.slice(-7),ver:'',fuente:'manual'}; }
+function parcialContinuarConFoto(vin){ /* se procesa en el analisis parcial */ }
+
+// ═══════════════════════════════════════════════════════════
+// INTEGRAR FOTO EN FLUJOS EXISTENTES
+// ═══════════════════════════════════════════════════════════
+// Interceptar loteAgregarVin para verificar si necesita foto
+const _origLoteAgregarVin = loteAgregarVin;
+window.loteAgregarVin = function(vin){
+  if(necesitaFoto(vin)){
+    abrirModalFoto(vin,'lote');
+    return; // esperar confirmación con foto
+  }
+  _origLoteAgregarVin(vin);
+};
+
+const _origColLoteAgregarVin = colLoteAgregarVin;
+window.colLoteAgregarVin = function(vin){
+  if(necesitaFoto(vin)){
+    abrirModalFoto(vin,'col-lote');
+    return;
+  }
+  _origColLoteAgregarVin(vin);
+};
 
 // ═══════════════════════════════════════════════════════════
 // HELPER: detectar dispositivo táctil (más confiable que ROL)
