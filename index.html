@@ -265,7 +265,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
       <span class="rol-badge rol-colector">COLECTOR</span>
-          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v3.0</span>
+          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v3.3</span>
       <div style="font-size:11px;color:var(--muted2)" id="col-operario-txt" onclick="openModal('modal-operario')" style="cursor:pointer">Toca para identificarte</div>
     </div>
   </div>
@@ -462,7 +462,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     <div class="tb-right">
       <div class="tb-op" id="tb-op" onclick="openModal('modal-operario')">Sin identificar</div>
       <span class="rol-badge rol-admin" id="tb-rol-badge" style="display:none">ADMIN</span>
-      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v3.0</span>
+      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v3.3</span>
       <button class="theme-toggle" onclick="toggleTheme()" title="Modo claro/oscuro" id="theme-btn">&#9788;</button>
       <button class="theme-toggle" onclick="solicitarNotificaciones()" id="notif-btn" title="Activar notificaciones push" style="display:none">&#9993;</button>
       <button class="btn btn-secondary btn-sm" id="btn-qr" onclick="openQRModal()" style="display:none" title="QR de acceso para colectores">QR</button>
@@ -486,6 +486,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
       <div class="nav-item disabled" onclick="showPage('resultados')" id="nav-resultados"><span class="nav-icon">&#8811;</span> Resultados<span class="nav-badge red" id="badge-ko" style="display:none">0</span></div>
       <div class="nav-item disabled" onclick="showPage('parcial')" id="nav-parcial"><span class="nav-icon">&#9638;</span> Inv. Parcial</div>
       <div class="nav-item disabled" onclick="showPage('observaciones')" id="nav-observaciones"><span class="nav-icon">&#9998;</span> Observaciones<span class="nav-badge" id="badge-obs">0</span></div>
+      <div class="nav-item disabled" onclick="showPage('pendientes')" id="nav-pendientes"><span class="nav-icon">&#9651;</span> VINs Pendientes<span class="nav-badge red" id="badge-pendientes" style="display:none">0</span></div>
       <div class="nav-section">Parqueo</div>
       <div class="nav-item" onclick="showPage('parqueo')" id="nav-parqueo"><span class="nav-icon">&#9646;</span> Parqueo<span class="nav-badge amber" id="badge-parqueo" style="display:none">0</span></div>
       <div class="nav-section">Produccion</div>
@@ -770,6 +771,29 @@ tr:hover td{background:rgba(255,255,255,.015)}
               </table>
             </div>
             <div id="parcial-more" style="padding:10px;text-align:center;font-size:11px;color:var(--muted);display:none"></div>
+          </div>
+        </div>
+      </div>
+      <!-- VINs PENDIENTES -->
+      <div class="page" id="page-pendientes">
+        <div class="page-title">VINs Pendientes de Completar</div>
+        <div class="page-sub">Chasis registrados en campo sin VIN completo — el administrador debe completarlos</div>
+        <div class="card" style="margin-bottom:14px">
+          <div style="font-size:12px;color:var(--muted2);line-height:1.7">
+            Estas unidades fueron registradas por los colectores cuando no podian leer la chapelona o el VIN no estaba en el sistema.
+            Completar el VIN completo para que quede correctamente vinculado al cruce del inventario.
+          </div>
+        </div>
+        <div class="card" style="padding:0">
+          <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase">Registros pendientes (<span id="pend-count">0</span>)</span>
+            <button class="btn btn-secondary btn-sm" onclick="exportarPendientes()">Exportar</button>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>VIN / Parcial registrado</th><th>Ubicacion colectada</th><th>Operario</th><th>Fecha</th><th>Tipo</th><th>VIN Completo (completar)</th><th>Guardar</th></tr></thead>
+              <tbody id="pend-tbody"></tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -1136,7 +1160,12 @@ async function crearInventario(){
   if(!S.isOnline){toast('Necesitas conexion para crear inventario','warn');return;}
   const fecha=new Date().toLocaleDateString('es-AR');
   const{data,error}=await sb.from('inventarios').insert({nombre,fecha}).select().single();
-  if(error){toast('Error: '+error.message,'ko');return;}
+  if(error){
+    const msg=error.message?.includes('fetch')||error.message?.includes('network')||error.message?.includes('Failed')
+      ?'Sin conexion a Supabase. Verifica tu red — si estas en la red corporativa, usa el hotspot del celular.'
+      :'Error: '+error.message;
+    toast(msg,'ko');return;
+  }
   closeModal('modal-inv');document.getElementById('inv-nombre').value='';document.getElementById('inv-operario').value='';
   await cargarInventario(data.id);showPage('dashboard');toast('Inventario creado: '+nombre,'ok');
 }
@@ -1148,7 +1177,7 @@ async function cargarInventario(id){
   S.invId=id;S.invNombre=inv.nombre;S.invFecha=inv.fecha;
   localStorage.setItem('st_inv_id',id);localStorage.setItem('st_inv_nombre',inv.nombre);localStorage.setItem('st_inv_fecha',inv.fecha);
   document.getElementById('inv-sep').style.display='';document.getElementById('tb-inv-name').style.display='';document.getElementById('tb-inv-name').textContent=inv.nombre;document.getElementById('tb-inv-date').style.display='';document.getElementById('tb-inv-date').textContent=inv.fecha;document.getElementById('btn-pdf').style.display='';document.getElementById('btn-qr').style.display='';
-  ['dashboard','buscador','lote','scanner','resultados','parcial','reporte','observaciones','actividad'].forEach(p=>document.getElementById('nav-'+p).classList.remove('disabled'));
+  ['dashboard','buscador','lote','scanner','resultados','parcial','reporte','pendientes','observaciones','actividad'].forEach(p=>document.getElementById('nav-'+p).classList.remove('disabled'));
   await Promise.all([cargarStock(),cargarColectas(),cargarValidFijas(),cargarObservaciones(),cargarProduccion()]);
   cargarVinsProd().then(()=>calcularResultados()).then(()=>updateStats()); // cruce con productivo
   calcularResultados();updateStats();cargarPlayaLista();
@@ -1227,7 +1256,8 @@ async function guardarValidFija(v){
   await queueOrSend('vf',{...v,inventario_id:S.invId,operario:S.operario});
 }
 async function cargarObservaciones(){
-  if(!S.isOnline){S.observaciones=JSON.parse(localStorage.getItem('st_obs_'+S.invId)||'[]');document.getElementById('badge-obs').textContent=S.observaciones.length;return;}
+  if(!S.isOnline){S.observaciones=JSON.parse(localStorage.getItem('st_obs_'+S.invId)||'[]');document.getElementById('badge-obs').textContent=S.observaciones.length;
+  const pb2=getPendientes?getPendientes():[];const bpd=document.getElementById('badge-pendientes');if(bpd){if(pb2.length>0){bpd.style.display='';bpd.textContent=pb2.length;}else bpd.style.display='none';}return;}
   S.observaciones=await paginarQuery('observaciones','*',{inventario_id:S.invId});
   S.observaciones.sort((a,b)=>new Date(b.creado_en)-new Date(a.creado_en));
   localStorage.setItem('st_obs_'+S.invId,JSON.stringify(S.observaciones));
@@ -1451,1903 +1481,147 @@ function exportarTodos(){
 }
 
 function exportarExcelProfesional(datos, hojaNombre, nombreArchivo){
-  const wb = XLSX.utils.book_new();
-  const fecha = new Date().toLocaleDateString('es-AR');
+  const wb=XLSX.utils.book_new();
+  const fecha=new Date().toLocaleDateString('es-AR');
+  const r=S.resultados;
+  const stockTotal=S.stock.length;
+  const colectados=r.filter(x=>x.ubicacionPlaya).length;
+  const okN=r.filter(x=>x.estado==='OK').length;
+  const reparqN=r.filter(x=>x.estado==='UBICACION_INCORRECTA').length;
+  const sobrN=r.filter(x=>x.estado==='NO_EN_STOCK'||x.estado==='EN_PRODUCTIVO').length;
+  const faltN=r.filter(x=>x.estado==='NO_COLECTADO').length;
+  const pctCol=stockTotal>0?Math.round((colectados/stockTotal)*100):0;
 
-  // ── Hoja principal de datos ──
-  const filas = datos.map(r=>({
-    'VIN': r.vin,
-    'UBICACION': r.ubicacionPlaya||r.ubicacionStock||'',
-    'UBICACION STOCK': r.ubicacionStock||'',
-    'ESTADO': r.estado,
-    'FUENTE': r.fuente==='fija'?'PLAYA FIJA':'LOTE/EXCEL',
-    'MODELO': r.modelo||'',
-    'COLOR': r.color||'',
-    'GRUPO': clasificarUbicacion(r.ubicacionStock||r.ubicacionPlaya).grupo,
-    'SUBGRUPO': clasificarUbicacion(r.ubicacionStock||r.ubicacionPlaya).subgrupo,
+  // ── HOJA 1: RESUMEN EJECUTIVO ──
+  const resData=[
+    ['STELLANTIS ARGENTINA — REPORTE DE INVENTARIO DE PLAYA','','','',''],
+    ['Inventario: '+S.invNombre,'','Fecha: '+fecha,'','Operario: '+(S.operario||'')],
+    ['','','','',''],
+    ['RESUMEN EJECUTIVO','','','',''],
+    ['','','','',''],
+    ['INDICADOR','VALOR','PORCENTAJE','',''],
+    ['Stock Total',stockTotal,'100%','',''],
+    ['Colectados',colectados,pctCol+'%','',''],
+    ['OK en lugar correcto',okN,stockTotal>0?Math.round((okN/stockTotal)*100)+'%':'','',''],
+    ['Reparqueadas (ubicacion incorrecta)',reparqN,stockTotal>0?Math.round((reparqN/stockTotal)*100)+'%':'','',''],
+    ['Sobrantes (no en stock)',sobrN,'','',''],
+    ['Faltantes (no colectados)',faltN,stockTotal>0?Math.round((faltN/stockTotal)*100)+'%':'','',''],
+    ['','','','',''],
+    ['AVANCE POR GRUPO','STOCK','OK','REPARQ.','SOBRANTES','FALTANTES','% AVANCE'],
+  ];
+
+  // Agregar filas por grupo
+  const grupos={};
+  for(const s of S.stock){const g=clasificarUbicacion(s.boxatura).grupo;if(!grupos[g])grupos[g]={stock:0,ok:0,rep:0,sobr:0,falt:0};grupos[g].stock++;}
+  for(const rr of r){const g=clasificarUbicacion(rr.ubicacionStock||rr.ubicacionPlaya).grupo;if(!grupos[g])grupos[g]={stock:0,ok:0,rep:0,sobr:0,falt:0};if(rr.estado==='OK')grupos[g].ok++;else if(rr.estado==='UBICACION_INCORRECTA')grupos[g].rep++;else if(rr.estado==='NO_COLECTADO')grupos[g].falt++;else if(rr.estado==='NO_EN_STOCK'||rr.estado==='EN_PRODUCTIVO')grupos[g].sobr++;}
+  Object.entries(grupos).sort((a,b)=>b[1].stock-a[1].stock).forEach(([g,gd])=>{
+    resData.push([g,gd.stock,gd.ok,gd.rep,gd.sobr,gd.falt,gd.stock>0?Math.round((gd.ok/gd.stock)*100)+'%':'0%']);
+  });
+
+  const wsRes=XLSX.utils.aoa_to_sheet(resData);
+  wsRes['!cols']=[{wch:36},{wch:10},{wch:10},{wch:10},{wch:12},{wch:12},{wch:10}];
+  wsRes['!merges']=[{s:{r:0,c:0},e:{r:0,c:6}},{s:{r:1,c:0},e:{r:1,c:1}},{s:{r:1,c:2},e:{r:1,c:3}}];
+  XLSX.utils.book_append_sheet(wb,wsRes,'Resumen');
+
+  // ── HOJA 2: DATOS COMPLETOS ──
+  const filas=datos.map(r=>({
+    'VIN':r.vin,
+    'UBICACION COLECTADA':r.ubicacionPlaya||'',
+    'UBICACION STOCK':r.ubicacionStock||'',
+    'ESTADO':r.estado,
+    'ACCION':(()=>{
+      if(r.estado==='OK') return 'OK — Ningun accion requerida';
+      if(r.estado==='UBICACION_INCORRECTA') return 'Reparquear: '+(r.ubicacionPlaya||'?')+' -> '+(r.ubicacionStock||'?');
+      if(r.estado==='NO_COLECTADO') return 'Busqueda fisica / Marcar VIR';
+      if(r.estado==='NO_EN_STOCK') return 'Verificar fisico — no deberia estar en playa';
+      if(r.estado==='EN_PRODUCTIVO') return 'Aguardar confirmacion de planta';
+      return '';
+    })(),
+    'GRUPO':clasificarUbicacion(r.ubicacionStock||r.ubicacionPlaya).grupo,
+    'SUBGRUPO':clasificarUbicacion(r.ubicacionStock||r.ubicacionPlaya).subgrupo,
+    'FUENTE':r.fuente==='fija'?'PLAYA FIJA':'LOTE/EXCEL',
+    'MODELO':r.modelo||'',
+    'COLOR':r.color||'',
   }));
 
-  // Header con info del inventario (filas de encabezado)
-  const wsData = [
-    ['STELLANTIS ARGENTINA', '', '', '', '', '', '', '', ''],
-    ['Sistema de Inventario de Playa', '', '', '', '', '', '', '', ''],
-    [`Inventario: ${S.invNombre}`, '', `Fecha: ${fecha}`, '', `Operario: ${S.operario||''}`, '', `Total registros: ${datos.length}`, '', ''],
-    ['', '', '', '', '', '', '', '', ''],
-    ['VIN','UBICACION','UBICACION STOCK','ESTADO','FUENTE','MODELO','COLOR','GRUPO','SUBGRUPO'],
+  const encData=[
+    ['STELLANTIS ARGENTINA — DETALLE COMPLETO DE INVENTARIO','','','','','','','','',''],
+    ['Inventario: '+S.invNombre+' | Fecha: '+fecha+' | Total registros: '+datos.length,'','','','','','','','',''],
+    [''],
+    ['VIN','UBICACION COLECTADA','UBICACION STOCK','ESTADO','ACCION SUGERIDA','GRUPO','SUBGRUPO','FUENTE','MODELO','COLOR'],
     ...filas.map(f=>Object.values(f))
   ];
+  const wsData=XLSX.utils.aoa_to_sheet(encData);
+  wsData['!cols']=[{wch:20},{wch:16},{wch:16},{wch:18},{wch:40},{wch:18},{wch:12},{wch:12},{wch:22},{wch:14}];
+  wsData['!merges']=[{s:{r:0,c:0},e:{r:0,c:9}},{s:{r:1,c:0},e:{r:1,c:9}}];
+  XLSX.utils.book_append_sheet(wb,wsData,hojaNombre.slice(0,31));
 
-  const ws = XLSX.utils.aoa_to_sheet(wsData);
-
-  // Anchos de columna
-  ws['!cols'] = [
-    {wch:20},{wch:14},{wch:14},{wch:18},{wch:14},{wch:22},{wch:14},{wch:18},{wch:12}
-  ];
-
-  // Merge celdas del header
-  ws['!merges'] = [
-    {s:{r:0,c:0},e:{r:0,c:8}}, // Stellantis Argentina
-    {s:{r:1,c:0},e:{r:1,c:8}}, // subtitulo
-  ];
-
-  XLSX.utils.book_append_sheet(wb, ws, hojaNombre.slice(0,31));
-
-  // ── Hoja resumen por grupo ──
-  const grupos={};
-  for(const r of datos){
-    const {grupo}=clasificarUbicacion(r.ubicacionStock||r.ubicacionPlaya);
-    if(!grupos[grupo])grupos[grupo]={ok:0,ko_ubic:0,no_stock:0,en_prod:0,no_col:0,total:0};
-    grupos[grupo].total++;
-    if(r.estado==='OK')grupos[grupo].ok++;
-    else if(r.estado==='UBICACION_INCORRECTA')grupos[grupo].ko_ubic++;
-    else if(r.estado==='NO_EN_STOCK')grupos[grupo].no_stock++;
-    else if(r.estado==='EN_PRODUCTIVO')grupos[grupo].en_prod++;
-    else if(r.estado==='NO_COLECTADO')grupos[grupo].no_col++;
-  }
-  const wsRes = XLSX.utils.aoa_to_sheet([
-    ['STELLANTIS — RESUMEN POR GRUPO','','','','','',''],
-    [`Inventario: ${S.invNombre} | Fecha: ${fecha}`,'','','','','',''],
-    [''],
-    ['GRUPO','OK','KO UBICACION','NO EN STOCK','EN PRODUCTIVO','NO COLECTADO','TOTAL'],
-    ...Object.entries(grupos).map(([g,d])=>[g,d.ok,d.ko_ubic,d.no_stock,d.en_prod,d.no_col,d.total])
-  ]);
-  wsRes['!cols']=[{wch:20},{wch:8},{wch:14},{wch:12},{wch:14},{wch:14},{wch:8}];
-  wsRes['!merges']=[{s:{r:0,c:0},e:{r:0,c:6}},{s:{r:1,c:0},e:{r:1,c:6}}];
-  XLSX.utils.book_append_sheet(wb, wsRes, 'Resumen');
-
-  XLSX.writeFile(wb, `${nombreArchivo}_${fecha.replace(/\//g,'-')}.xlsx`);
-  toast('Excel exportado','ok');
-}
-function handleDrop(e,type){e.preventDefault();document.getElementById('uz-'+type)?.classList.remove('drag');processFile(e.dataTransfer.files[0],type);}
-function handleFile(input,type){processFile(input.files[0],type);input.value='';}
-function processFile(file,type){if(!file)return;if(!S.invId){toast('Primero crea un inventario','warn');return;}const reader=new FileReader();reader.onload=async(e)=>{const wb=XLSX.read(e.target.result,{type:'binary'});const ws=wb.Sheets[wb.SheetNames[0]];const data=XLSX.utils.sheet_to_json(ws);if(type==='stock')await subirStock(data);else{const sector=document.getElementById('playa-sector').value.trim();if(!sector){toast('Ingresa el nombre del sector','warn');return;}await subirColectaExcel(data,sector,file.name);}};reader.readAsBinaryString(file);}
-function setupRealtime(){
-  sb.channel('inv-ch')
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'validaciones_fijas'},async(p)=>{if(p.new.inventario_id!==S.invId)return;const v=p.new;S.validFijas=S.validFijas.filter(x=>x.ubicacion!==v.ubicacion);S.validFijas.push(v);localStorage.setItem('st_vf_'+S.invId,JSON.stringify(S.validFijas));calcularResultados();updateStats();if(v.resultado==='COINCIDE')enviarNotificacion('Validacion recibida',`${v.ubicacion}: COINCIDE (${v.operario||'Colector'})`,'validacion');logActividad(`<span>${v.operario||'Colector'}</span> valido <span>${v.ubicacion}</span> - ${v.resultado}`);})
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'colectas'},async(p)=>{if(p.new.inventario_id!==S.invId)return;await cargarColectas();calcularResultados();updateStats();cargarPlayaLista();logActividad(`<span>${p.new.operario||'Colector'}</span> cargo <span>${p.new.archivo||p.new.sector}</span>`);})
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'parqueos'},async(p)=>{
-      const exists=pqData.find(x=>x.id===p.new.id);
-      if(!exists){ pqData.unshift(p.new); localStorage.setItem('st_pq',JSON.stringify(pqData)); pqRefreshBadge(); if(document.getElementById('page-parqueo').classList.contains('active'))pqRenderTabla(); logActividad(`<span>${p.new.operario||'Operador'}</span> parqueo <span>${p.new.chass||p.new.vin.slice(-7)}</span> en <span>${p.new.ubicacion}</span>`); }
-    })
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'parqueos'},async(p)=>{
-      const idx=pqData.findIndex(x=>x.id===p.new.id);
-      if(idx>=0){ pqData[idx]=p.new; localStorage.setItem('st_pq',JSON.stringify(pqData)); pqRefreshBadge(); if(document.getElementById('page-parqueo').classList.contains('active'))pqRenderTabla(); }
-    })
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'observaciones'},async(p)=>{if(p.new.inventario_id!==S.invId)return;logActividad(`<span>${p.new.operario||'Colector'}</span> agrego observacion`);})
-    .subscribe();
-}
-function logActividad(msg){const log=document.getElementById('rt-log');const now=new Date().toLocaleTimeString('es-AR');log.insertAdjacentHTML('afterbegin',`<div class="rt-item">${now} - ${msg}</div>`);if(log.children.length>100)log.removeChild(log.lastChild);}
-function generarPDF(){
-  const{jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});const W=210,M=14;let y=0;
-  const ck=(h=8)=>{if(y+h>282){doc.addPage();y=18;}};
-  doc.setFillColor(8,8,16);doc.rect(0,0,W,34,'F');doc.setFillColor(200,164,86);doc.rect(0,0,4,34,'F');
-  doc.setTextColor(200,164,86);doc.setFontSize(18);doc.setFont('helvetica','bold');doc.text('STELLANTIS',M+4,13);
-  doc.setTextColor(200,200,210);doc.setFontSize(9);doc.setFont('helvetica','normal');doc.text('REPORTE DE INVENTARIO DE PLAYA',M+4,20);doc.text(`${S.invNombre}   |   ${S.invFecha}   |   ${new Date().toLocaleString('es-AR')}`,M+4,27);y=44;
-  doc.setTextColor(0);doc.setFontSize(10);doc.setFont('helvetica','bold');doc.text('RESUMEN EJECUTIVO',M,y);y+=6;
-  const r=S.resultados;const stats=[['Stock Total',S.stock.length,[99,102,241]],['Colectados',r.filter(x=>x.ubicacionPlaya).length,[200,164,86]],['OK',r.filter(x=>x.estado==='OK').length,[34,197,94]],['KO',r.filter(x=>x.estado!=='OK'&&x.estado!=='NO_EN_STOCK').length,[239,68,68]],['No en Stock',r.filter(x=>x.estado==='NO_EN_STOCK').length,[245,158,11]]];
-  const sw=(W-M*2)/stats.length;stats.forEach(([lbl,val,col],i)=>{const x=M+i*sw;doc.setFillColor(...col);doc.rect(x,y,sw-2,16,'F');doc.setTextColor(255);doc.setFontSize(20);doc.setFont('helvetica','bold');doc.text(String(val),x+sw/2-1,y+11,{align:'center'});doc.setFontSize(7);doc.setFont('helvetica','normal');doc.text(lbl,x+sw/2-1,y+15.5,{align:'center'});});y+=24;
-  const ds=(title,items,fields,color)=>{if(items.length===0)return;ck(12);doc.setFillColor(...color);doc.rect(M,y,W-M*2,7,'F');doc.setTextColor(255);doc.setFontSize(9);doc.setFont('helvetica','bold');doc.text(`${title}  (${items.length})`,M+2,y+5);y+=9;doc.setTextColor(30);doc.setFontSize(7);doc.setFont('helvetica','normal');items.forEach((item,idx)=>{ck(6);if(idx%2===0){doc.setFillColor(245,245,250);doc.rect(M,y-3,W-M*2,6,'F');}doc.text(fields.map(f=>`${f.l}: ${item[f.k]||'?'}`).join('   '),M+2,y);y+=6;});y+=4;};
-  ds('OK - UNIDADES OK',r.filter(x=>x.estado==='OK'),[{l:'VIN',k:'vin'},{l:'Ubic',k:'ubicacionStock'}],[34,140,94]);
-  ds('KO - UBICACION INCORRECTA',r.filter(x=>x.estado==='UBICACION_INCORRECTA'),[{l:'VIN',k:'vin'},{l:'Stock',k:'ubicacionStock'},{l:'Playa',k:'ubicacionPlaya'}],[180,50,50]);
-  ds('NO COLECTADOS - VIR',r.filter(x=>x.estado==='NO_COLECTADO'),[{l:'VIN',k:'vin'},{l:'Stock',k:'ubicacionStock'}],[120,100,200]);
-  ds('EN PLAYA SIN STOCK',r.filter(x=>x.estado==='NO_EN_STOCK'),[{l:'VIN',k:'vin'},{l:'Playa',k:'ubicacionPlaya'}],[180,130,30]);
-  const fijas=S.validFijas.filter(v=>v.resultado!=='NO_VERIFICADO');
-  if(fijas.length>0){ck(12);doc.setFillColor(80,80,160);doc.rect(M,y,W-M*2,7,'F');doc.setTextColor(255);doc.setFontSize(9);doc.setFont('helvetica','bold');doc.text(`VALIDACIONES PLAYA FIJA  (${fijas.length})`,M+2,y+5);y+=9;doc.setTextColor(30);doc.setFontSize(7);doc.setFont('helvetica','normal');fijas.forEach((v,idx)=>{ck(6);if(idx%2===0){doc.setFillColor(245,245,250);doc.rect(M,y-3,W-M*2,6,'F');}const ic={COINCIDE:'OK',VACIO_OK:'VACIO',OTRO_VIN:'DIFER',VACIO_INESPERADO:'VID',INESPERADO:'?'}[v.resultado]||'?';doc.text(`${ic} ${v.ubicacion}  Esp:${v.vin_esperado?v.vin_esperado.slice(-7):'VACIO'}  Enc:${v.vin_encontrado||'VACIO'}  ${v.resultado}  ${v.operario||''}`,M+2,y);y+=6;});y+=4;}
-  if(S.observaciones.length>0){ck(12);doc.setFillColor(30,30,50);doc.rect(M,y,W-M*2,7,'F');doc.setTextColor(255);doc.setFontSize(9);doc.setFont('helvetica','bold');doc.text(`OBSERVACIONES  (${S.observaciones.length})`,M+2,y+5);y+=9;doc.setTextColor(30);doc.setFontSize(8);doc.setFont('helvetica','normal');S.observaciones.forEach(o=>{ck(10);doc.text(`[${o.tipo}] ${(o.vin||'').slice(-7)} - ${o.texto}  (${o.operario||''})`,M+2,y);y+=7;});}
-  const tot=doc.internal.getNumberOfPages();for(let i=1;i<=tot;i++){doc.setPage(i);doc.setFontSize(7);doc.setTextColor(160);doc.text(`Stellantis - Inventario de Playa  |  ${S.invNombre}  |  Pag ${i}/${tot}`,W/2,292,{align:'center'});}
-  doc.save(`Inventario_${S.invNombre.replace(/\s+/g,'_')}_${S.invFecha.replace(/\//g,'-')}.pdf`);toast('PDF generado','ok');
-}
-function toast(msg,type=''){const el=document.getElementById('toast');el.textContent=msg;el.className='show'+(type?' '+type+'-toast':'');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.className='',2800);}
-
-// ═══════════════════════════════════════════════════════════
-// MÓDULO PRODUCCION
-// ═══════════════════════════════════════════════════════════
-let prodData = [];          // VINs cargados para la tabla admin (paginado)
-let prodTotalCount = 0;    // total en Supabase sin bajar todo
-let prodUbicaciones = [];   // historial de ubicaciones
-let prodVinSel = null;      // VIN actualmente seleccionado
-let prodTipo = 'fisica';    // 'fisica' | 'lote'
-let prodFiltroActual = 'TODOS';
-let prodBusquedaActual = '';
-
-async function cargarProduccion() {
-  if(!S.isOnline){ prodRefreshBadge(); return; }
-  // Solo traer count y ubicaciones — NO bajar todos los VINs al cliente
-  // Los VINs se consultan puntualmente cuando el operador busca un chasis
-  const {count} = await sb.from('produccion').select('*', {count:'exact', head:true});
-  prodTotalCount = count || 0;
-  prodUbicaciones = await paginarQuery('produccion_ubicaciones','id,vin,tipo_ubicacion,ubicacion,operario,notas,activa,creado_en',{});
-  try { localStorage.setItem('st_prod_ubic', JSON.stringify(prodUbicaciones)); } catch(e){}
-  prodRefreshBadge();
-}
-
-function prodRefreshBadge(){
-  const total = prodTotalCount || prodData.length;
-  document.getElementById('badge-prod').textContent = total;
-  document.getElementById('prod-total').textContent = total;
-}
-
-async function importarProduccion(input){
-  const file = input.files[0]; if(!file) return;
-  input.value='';
-  const reader = new FileReader();
-  reader.onload = async(e) => {
-    const wb = XLSX.read(e.target.result,{type:'binary'});
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const status = document.getElementById('prod-import-status');
-    status.style.display='';
-    status.innerHTML=`<div style="font-size:12px;color:var(--muted2)">Leyendo archivo...</div>`;
-
-    // Leer la hoja como array usando decode_range para forzar desde A1
-    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
-    range.s = {r:0, c:0}; // forzar inicio en fila 0 columna 0
-    const dataMatrix = XLSX.utils.sheet_to_json(ws, {
-      header:1, defval:'', raw:true, cellDates:true,
-      range: range
-    });
-
-    console.log('Total filas leidas:', dataMatrix.length);
-    console.log('Fila 0 raw:', JSON.stringify(dataMatrix[0]).slice(0,150));
-    console.log('Fila 1 raw:', JSON.stringify(dataMatrix[1]).slice(0,150));
-
-    if(dataMatrix.length < 2){ toast('Archivo vacio','warn'); return; }
-
-    // La fila de headers es la que tiene strings que coinciden con nombres de columnas CIS conocidos
-    const CIS_COLS = ['CIS','CHASS','PREVIN','VER','MER','ESD','SEQ','VIN'];
-    let headerIdx = -1;
-    for(let i=0; i<Math.min(10, dataMatrix.length); i++){
-      const cells = dataMatrix[i].map(c=>String(c||'').trim().toUpperCase());
-      const matches = cells.filter(c=>CIS_COLS.includes(c));
-      if(matches.length >= 2){ headerIdx = i; break; }
-    }
-
-    // Si no encontró por nombres CIS, buscar cualquier fila con mayoria de strings
-    if(headerIdx < 0){
-      for(let i=0; i<Math.min(10, dataMatrix.length); i++){
-        const row = dataMatrix[i];
-        const strings = row.filter(c=>typeof c==='string' && c.trim().length>0 && c.trim().length<40);
-        if(strings.length > row.length * 0.4){ headerIdx = i; break; }
-      }
-    }
-
-    if(headerIdx < 0){ headerIdx = 0; } // fallback
-
-    const headerRow = dataMatrix[headerIdx].map(h=>String(h||'').trim());
-    const headerSet = headerRow.map(h=>h.toUpperCase());
-    const esCIS = headerSet.includes('PREVIN') && headerSet.includes('CHASS');
-    console.log('headerIdx elegido:', headerIdx);
-    console.log('headerRow:', headerRow.slice(0,8).join(' | '));
-    console.log('esCIS:', esCIS);
-
-    if(!esCIS && !headerSet.includes('VIN')){
-      status.innerHTML=`<div style="padding:8px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:4px;font-size:12px;color:var(--ko)">
-        No se encontraron columnas PREVIN+CHASS ni VIN.<br>
-        Fila 0: ${dataMatrix[0].slice(0,6).map(c=>String(c||'')).join(', ')}<br>
-        Fila 1: ${dataMatrix[1].slice(0,6).map(c=>String(c||'')).join(', ')}
-      </div>`;
-      return;
-    }
-
-    // Armar objetos con los headers detectados
-    const rows = dataMatrix.slice(headerIdx+1).map(arr=>{
-      const obj={};
-      headerRow.forEach((h,i)=>{ if(h) obj[h] = arr[i]; });
-      return obj;
-    }).filter(r=>{
-      if(esCIS){
-        const pre = String(r['PREVIN']||'').trim();
-        const ch  = String(r['CHASS']||'').trim();
-        return pre.length >= 5 && ch.length >= 4;
-      }
-      return Object.values(r).some(v=>v!==''&&v!==null&&v!==undefined);
-    });
-
-    if(!rows.length){ toast('Sin filas de datos validos','warn'); return; }
-    console.log('Filas validas:', rows.length, '| PREVIN[0]:', rows[0]['PREVIN'], '| CHASS[0]:', rows[0]['CHASS']);
-
-    let parsed;
-    if(esCIS){
-      // Formato CIS: VIN = PREVIN + CHASS
-      // Keys mapeadas directamente desde headerRow (ya tienen el nombre exacto)
-      const findKey = (name) => headerRow.find(h=>h.trim().toUpperCase()===name.toUpperCase()) || name;
-      const previnKey = findKey('PREVIN');
-      const chassKey  = findKey('CHASS');
-      const verKey    = findKey('VER');
-      const merKey    = findKey('MER');
-      const esdKey    = findKey('ESD');
-      const seqKey    = findKey('SEQ');
-      const staKey    = findKey('CUR STA');
-      const cisKey    = findKey('CIS');
-      parsed = rows.map(r=>{
-        const previn = String(r[previnKey]||'').trim();
-        const chass  = String(r[chassKey]||'').trim();
-        const vin    = (previn + chass).slice(0,17);
-        if(vin.length < 10) return null;
-        const extra = {};
-        ['CIS','ORD','MOC','MOS','SSC','SMO','CEST','SIN','SEQ','M_Y','MDE','All. Spec','E.CU','CNST','OPT_LIST'].forEach(k=>{ if(r[k]!==undefined) extra[k]=r[k]; });
-        // Con cellDates:true, las fechas vienen como JS Date objects
-        let esdStr = null;
-        const esdRaw = r[esdKey];
-        if(esdRaw !== '' && esdRaw !== null && esdRaw !== undefined){
-          if(esdRaw instanceof Date && !isNaN(esdRaw)){
-            esdStr = esdRaw.toISOString().slice(0,10);
-          } else if(typeof esdRaw === 'number'){
-            const d = new Date(Math.round((esdRaw - 25569) * 86400 * 1000));
-            esdStr = isNaN(d)?null:d.toISOString().slice(0,10);
-          } else {
-            const s = String(esdRaw).trim();
-            esdStr = s.length >= 10 ? s.slice(0,10) : null;
-          }
-        }
-        // Limpiar datos_extra: convertir Dates a string, quitar valores problemáticos
-        const extraClean = {};
-        Object.entries(extra).forEach(([k,v])=>{
-          if(v instanceof Date) extraClean[k] = v.toISOString().slice(0,10);
-          else if(typeof v === 'boolean') extraClean[k] = v ? 1 : 0;
-          else if(v === null || v === undefined || v === '') extraClean[k] = null;
-          else extraClean[k] = v;
-        });
-        return {
-          vin, previn, chass,
-          ver: String(r[verKey]||'').trim() || null,
-          mer: String(r[merKey]||'').trim() || null,
-          esd: esdStr,
-          seq: parseInt(r[seqKey])||null,
-          estado: String(r[staKey]||'').trim() || null,
-          cis: parseInt(r[cisKey])||null,
-          datos_extra: extraClean,
-          archivo_origen: file.name
-        };
-      }).filter(Boolean);
-      status.innerHTML=`<div style="font-size:12px;color:var(--muted2)">Formato CIS detectado — importando ${parsed.length} VINs (PREVIN+CHASS)...</div>`;
-    } else {
-      // Formato generico con columna VIN
-      let vinCol = headerRow.find(h=>h.trim().toUpperCase()==='VIN');
-      if(!vinCol) vinCol = headerRow.find(h=>String(sample[h]||'').trim().length===17);
-      if(!vinCol){ toast('No se encontro columna VIN ni PREVIN+CHASS. Headers: '+headerRow.slice(0,8).join(', '),'ko'); return; }
-      parsed = rows.map(r=>{
-        const vin = String(r[vinCol]||'').trim().slice(0,17);
-        if(vin.length < 6) return null;
-        const extra = {}; Object.keys(r).forEach(k=>{ if(k!==vinCol) extra[k]=r[k]; });
-        return { vin, datos_extra:extra, archivo_origen:file.name };
-      }).filter(Boolean);
-      status.innerHTML=`<div style="font-size:12px;color:var(--muted2)">Importando ${parsed.length} VINs...</div>`;
-    }
-
-    // Deduplicar por VIN — el archivo puede tener el mismo VIN más de una vez
-    // ON CONFLICT falla si el mismo VIN aparece dos veces en el mismo lote
-    const vinMap = new Map();
-    for(const r of parsed) vinMap.set(r.vin, r); // última aparición gana
-    const unicos = [...vinMap.values()];
-    console.log('Parsed:', parsed.length, '| Unicos:', unicos.length, '| Duplicados eliminados:', parsed.length - unicos.length);
-
-    let ok=0, err=0;
-    for(let i=0; i<unicos.length; i+=500){
-      const lote = unicos.slice(i, i+500);
-      const {error} = await sb.from('produccion').upsert(lote, {onConflict:'vin'});
-      if(error){
-        console.error('Lote', Math.floor(i/500), 'error:', error.message);
-        err += lote.length;
-      } else {
-        ok += lote.length;
-      }
-    }
-    const dupMsg = parsed.length - unicos.length > 0 ? ` (${parsed.length - unicos.length} duplicados eliminados)` : '';
-    status.innerHTML = err===0
-      ? `<div style="padding:8px 10px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:4px;font-size:12px;color:var(--ok)">OK ${ok} VINs importados${esCIS?' · CIS':''}${dupMsg}</div>`
-      : `<div style="padding:8px 10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:4px;font-size:12px;color:var(--ko)">${err} errores — ${ok} importados${dupMsg}</div>`;
-    await cargarProduccion();
-    prodRenderTabla();
-    toast('Importacion: '+ok+' VINs','ok');
-  };
-  reader.readAsBinaryString(file);
-}
-
-function handleDropProd(e){ e.preventDefault(); const f=e.dataTransfer.files[0]; if(!f)return; const fake={files:[f],value:''}; importarProduccion(fake); }
-
-// ── BUSCAR VIN en produccion — consulta directa a Supabase ──
-async function prodBuscarVin(val){
-  const q = val.trim().toUpperCase();
-  const el = document.getElementById('prod-vin-match');
-  document.getElementById('prod-asignar-form').style.display='none';
-  prodVinSel = null;
-  if(q.length<4){ el.innerHTML=''; return; }
-  el.innerHTML=`<div style="font-size:12px;color:var(--muted2);padding:4px 0">Buscando...</div>`;
-  // Buscar en Supabase por CHASS (ilike) o fin del VIN
-  const {data} = await sb.from('produccion')
-    .select('id,vin,previn,chass,ver,esd,estado')
-    .or(`chass.ilike.%${q}%,vin.ilike.%${q}%`)
-    .limit(8);
-  const matches = data||[];
-  if(matches.length===0){ el.innerHTML=`<div style="font-size:12px;color:var(--muted)">No encontrado en produccion</div>`; return; }
-  el.innerHTML=`<div class="manual-suggestions">${matches.map(m=>{
-    const ubic = prodUbicaciones.find(u=>u.vin===m.vin&&u.activa);
-    return `<div class="manual-sug-item" onclick="prodSelVin('${m.vin}')">
-      <div>
-        <span class="mono" style="font-size:12px">${hv(m.vin,q)}</span>
-        <div style="font-size:10px;color:var(--muted)">CHASS: ${m.chass||''}${m.ver?' · '+m.ver:''}${m.esd?' · ESD: '+m.esd:''}</div>
-      </div>
-      <span style="font-size:11px;color:${ubic?'var(--ok)':'var(--muted2)'}">${ubic?ubic.ubicacion:'Sin ubicar'}</span>
-    </div>`;
-  }).join('')}</div>`;
-}
-
-function prodSelVin(vin){
-  prodVinSel = vin;
-  const p = prodData.find(x=>x.vin===vin);
-  const ubic = prodUbicaciones.find(u=>u.vin===vin&&u.activa);
-  document.getElementById('prod-vin-match').innerHTML='';
-  document.getElementById('prod-vin-inp').value='';
-  document.getElementById('prod-vin-sel').textContent = vin;
-  const infoParts = [];
-  if(p?.chass) infoParts.push('CHASS: '+p.chass);
-  if(p?.ver)   infoParts.push('VER: '+p.ver);
-  if(p?.esd)   infoParts.push('ESD: '+p.esd);
-  if(p?.estado) infoParts.push('Estado: '+p.estado);
-  if(ubic)     infoParts.push('Ubicacion actual: '+ubic.ubicacion);
-  document.getElementById('prod-info-sel').textContent = infoParts.join(' · ');
-  document.getElementById('prod-asignar-form').style.display='';
-  prodSetTipo('fisica');
-  prodInitFisicaSelects();
-}
-
-function prodSetTipo(tipo){
-  prodTipo = tipo;
-  document.getElementById('prod-fisica-wrap').style.display = tipo==='fisica'?'':'none';
-  document.getElementById('prod-lote-wrap').style.display = tipo==='lote'?'':'none';
-  document.getElementById('prod-tipo-fisica').className = 'btn btn-sm justify-content:center '+(tipo==='fisica'?'btn-primary':'btn-secondary');
-  document.getElementById('prod-tipo-lote').className = 'btn btn-sm '+(tipo==='lote'?'btn-primary':'btn-secondary');
-}
-
-function prodInitFisicaSelects(){
-  prodUpdateCalles(); prodUpdateBoxes(); prodUpdateUbicFisica();
-}
-
-function prodUpdateCalles(){
-  const s = document.getElementById('prod-sector').value;
-  const calles = SECTORES[s]?.calles||[];
-  document.getElementById('prod-calle').innerHTML = calles.map(c=>`<option value="${c}">${c}</option>`).join('');
-  prodUpdateBoxes(); prodUpdateUbicFisica();
-}
-
-function prodUpdateBoxes(){
-  const s = document.getElementById('prod-sector').value;
-  const max = SECTORES[s]?.boxes||52;
-  document.getElementById('prod-box').innerHTML = Array.from({length:max},(_,i)=>String(i+1).padStart(3,'0')).map(b=>`<option value="${b}">${b}</option>`).join('');
-  prodUpdateUbicFisica();
-}
-
-function prodUpdateUbicFisica(){
-  const s=document.getElementById('prod-sector').value;
-  const c=document.getElementById('prod-calle').value;
-  const b=document.getElementById('prod-box').value;
-  document.getElementById('prod-ubic-preview').textContent = `${s}${c}${b}`;
-}
-
-async function prodAsignarUbicacion(){
-  if(!prodVinSel){ toast('Selecciona un VIN primero','warn'); return; }
-  let ubicacion='';
-  if(prodTipo==='fisica'){
-    ubicacion = document.getElementById('prod-ubic-preview').textContent;
-  } else {
-    const raw = document.getElementById('prod-lote-inp').value.trim();
-    if(!raw){ toast('Ingresa el nombre del lote','warn'); return; }
-    ubicacion = normalizarUbicacion(raw);
-    // Si después de normalizar parece fisica, confirmar tipo
-    if(esUbicacionFisicaValida(ubicacion)) prodTipo='fisica';
-  }
-  const notas = document.getElementById('prod-notas').value.trim();
-  // Desactivar ubicaciones anteriores de este VIN
-  const anteriores = prodUbicaciones.filter(u=>u.vin===prodVinSel&&u.activa);
-  if(anteriores.length>0 && S.isOnline){
-    await sb.from('produccion_ubicaciones').update({activa:false}).eq('vin',prodVinSel).eq('activa',true);
-  }
-  // Guardar nueva
-  const nueva = { vin:prodVinSel, tipo_ubicacion:prodTipo, ubicacion, operario:S.operario||'', notas, activa:true, creado_en:new Date().toISOString() };
-  // Update local
-  prodUbicaciones = prodUbicaciones.map(u=>u.vin===prodVinSel?{...u,activa:false}:u);
-  prodUbicaciones.unshift(nueva);
-  localStorage.setItem('st_prod_ubic', JSON.stringify(prodUbicaciones));
-  // Sync
-  if(S.isOnline){
-    const {error} = await sb.from('produccion_ubicaciones').insert(nueva);
-    if(error){ toast('Error al guardar: '+error.message,'ko'); return; }
-  } else {
-    S.offlineQueue.push({type:'prod_ubic', d:nueva, ts:Date.now()});
-    saveOQ();
-    toast('Sin conexion - guardado offline','warn');
-  }
-  logActividad(`<span>${S.operario||'Operador'}</span> asigno <span>${prodVinSel.slice(-7)}</span> a <span>${ubicacion}</span>`);
-  toast('Ubicacion guardada: '+ubicacion,'ok');
-  document.getElementById('prod-asignar-form').style.display='none';
-  document.getElementById('prod-notas').value='';
-  prodVinSel=null;
-  prodRenderTabla();
-}
-
-// ── TABLA ──
-function prodSetFiltro(f, btn){
-  prodFiltroActual=f;
-  document.querySelectorAll('#page-produccion .chip').forEach(c=>c.classList.remove('active'));
-  if(btn) btn.classList.add('active');
-  prodRenderTabla();
-}
-
-function prodFiltrar(v){ prodBusquedaActual=(v||'').toUpperCase(); prodRenderTabla(); }
-
-async function prodRenderTabla(){
-  if(!S.isOnline){ document.getElementById('prod-tbody').innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Sin conexion</td></tr>'; return; }
-  // Cargar desde Supabase con filtros
-  let q = sb.from('produccion').select('id,vin,previn,chass,ver,esd,estado,archivo_origen,creado_en');
-  if(prodBusquedaActual) q=q.or(`vin.ilike.%${prodBusquedaActual}%,chass.ilike.%${prodBusquedaActual}%`);
-  if(prodFiltroActual==='CON_UBIC'){
-    const vinsConUbic=[...new Set(prodUbicaciones.filter(u=>u.activa).map(u=>u.vin))];
-    if(vinsConUbic.length) q=q.in('vin',vinsConUbic); else {document.getElementById('prod-tbody').innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Sin resultados</td></tr>';return;}
-  }
-  if(prodFiltroActual==='SIN_UBIC'){
-    const vinsConUbic=[...new Set(prodUbicaciones.filter(u=>u.activa).map(u=>u.vin))];
-    if(vinsConUbic.length) q=q.not('vin','in',`(${vinsConUbic.map(v=>`"${v}"`).join(',')})`);
-  }
-  q=q.limit(300);
-  const {data} = await q;
-  let datos = data||[];
-  datos = datos.map(p=>({...p, _ubic: prodUbicaciones.find(u=>u.vin===p.vin&&u.activa)||null}));
-  const MAX=300;
-  document.getElementById('prod-tbody').innerHTML = data.slice(0,MAX).map(p=>{
-    const hist = prodUbicaciones.filter(u=>u.vin===p.vin).length;
-    const u = p._ubic;
-    return `<tr>
-      <td>
-        <div class="mono" style="font-size:11px;font-weight:700">${p.vin}</div>
-        ${p.chass?`<div style="font-size:10px;color:var(--muted2)">CHASS: ${p.chass}</div>`:''}
-      </td>
-      <td style="font-size:11px;color:var(--muted2)">${p.ver||'—'}</td>
-      <td style="font-size:11px;color:var(--muted2);white-space:nowrap">${p.esd||'—'}</td>
-      <td style="font-size:11px;color:var(--muted2)">${p.estado||'—'}</td>
-      <td class="mono" style="font-weight:700;color:${u?'var(--accent)':'var(--muted)'}">${u?u.ubicacion:'Sin ubicar'}</td>
-      <td>${u?`<span class="badge ${u.tipo_ubicacion==='fisica'?'b-info':'b-warn'}">${u.tipo_ubicacion==='fisica'?'FISICA':'LOTE'}</span>`:'—'}</td>
-      <td style="font-size:11px;color:var(--muted2)">${u?.operario||'—'}</td>
-      <td><button class="btn btn-xs btn-secondary" onclick="prodVerHistorial('${p.vin}')" ${hist>0?'':'disabled'}>${hist} mov.</button></td>
-    </tr>`;
-  }).join('');
-  const more = document.getElementById('prod-more');
-  if(data.length>MAX){ more.style.display=''; more.textContent=`Mostrando ${MAX} de ${data.length}.`; } else more.style.display='none';
-}
-
-function prodVerHistorial(vin){
-  const hist = prodUbicaciones.filter(u=>u.vin===vin).sort((a,b)=>new Date(b.creado_en)-new Date(a.creado_en));
-  if(!hist.length){ toast('Sin historial para este VIN'); return; }
-  const lineas = hist.map(u=>`${new Date(u.creado_en).toLocaleString('es-AR')} | ${u.ubicacion} (${u.tipo_ubicacion}) | ${u.operario||'—'} | ${u.activa?'ACTIVA':'anterior'}`).join('\n');
-  alert(`Historial VIN ...${vin.slice(-7)}:\n\n${lineas}`);
-}
-
-function exportarProduccion(){
-  const data = prodData.map(p=>{
-    const u = prodUbicaciones.find(x=>x.vin===p.vin&&x.activa);
-    const hist = prodUbicaciones.filter(x=>x.vin===p.vin).length;
-    return {VIN:p.vin, MODELO:p.modelo, COLOR:p.color, MARCA:p.marca, UBICACION_ACTUAL:u?.ubicacion||'', TIPO_UBICACION:u?.tipo_ubicacion||'', OPERARIO:u?.operario||'', FECHA_ASIGNACION:u?new Date(u.creado_en).toLocaleString('es-AR'):'', CANTIDAD_MOVIMIENTOS:hist, ARCHIVO_ORIGEN:p.archivo_origen};
-  });
-  const ws = XLSX.utils.json_to_sheet(data);
-  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Produccion');
-  XLSX.writeFile(wb,`Produccion_ubicaciones_${new Date().toLocaleDateString('es-AR').replace(/\//g,'-')}.xlsx`);
-  toast('Exportado OK','ok');
-}
-
-
-// ═══════════════════════════════════════════════════════════
-// RESUMEN DE CAMPO
-// ═══════════════════════════════════════════════════════════
-function iniciarCampo(){
-  // Setear fecha de hoy por defecto
-  const hoy = new Date().toISOString().slice(0,10);
-  const fi = document.getElementById('campo-fecha');
-  if(fi && !fi.value) fi.value = hoy;
-  renderCampo();
-}
-
-function renderCampo(){
-  const fechaFiltro = document.getElementById('campo-fecha')?.value || '';
-  const opFiltro = document.getElementById('campo-operario')?.value || '';
-
-  // Poblar select de operarios
-  const operarios = [...new Set(S.colectas.map(c=>c.operario).filter(Boolean))];
-  const sel = document.getElementById('campo-operario');
-  if(sel){
-    const current = sel.value;
-    sel.innerHTML = '<option value="">Todos los colectores</option>' +
-      operarios.map(o=>`<option value="${o}" ${o===current?'selected':''}>${o}</option>`).join('');
+  // ── HOJA 3: REPARQUEADAS ──
+  const reparq=r.filter(x=>x.estado==='UBICACION_INCORRECTA');
+  if(reparq.length>0){
+    const wrData=[
+      ['STELLANTIS — UNIDADES A REPARQUEAR','','','',''],
+      ['Inventario: '+S.invNombre+' | Fecha: '+fecha,'','','',''],
+      [''],
+      ['VIN','MODELO','ESTA EN (PLAYA)','DEBE IR A (STOCK)','GRUPO'],
+      ...reparq.map(x=>[x.vin,x.modelo||'',x.ubicacionPlaya||'',x.ubicacionStock||'',clasificarUbicacion(x.ubicacionStock).grupo])
+    ];
+    const wr=XLSX.utils.aoa_to_sheet(wrData);
+    wr['!cols']=[{wch:20},{wch:22},{wch:16},{wch:16},{wch:18}];
+    wr['!merges']=[{s:{r:0,c:0},e:{r:0,c:4}},{s:{r:1,c:0},e:{r:1,c:4}}];
+    XLSX.utils.book_append_sheet(wb,wr,'Reparquear');
   }
 
-  // Filtrar colectas
-  let colectas = [...S.colectas];
-
-  // Filtrar por fecha (usar creado_en si existe, sino archivo tiene timestamp)
-  if(fechaFiltro){
-    colectas = colectas.filter(c=>{
-      // intentar sacar fecha del campo creado_en o del archivo (LOTE_nombre_timestamp)
-      if(c.creado_en){
-        return c.creado_en.slice(0,10) === fechaFiltro;
-      }
-      // fallback: mostrar todo si no tiene fecha
-      return true;
-    });
-  }
-  if(opFiltro) colectas = colectas.filter(c=>c.operario===opFiltro);
-
-  const wrap = document.getElementById('campo-wrap');
-  if(!wrap) return;
-
-  if(colectas.length===0){
-    wrap.innerHTML = `<div style="text-align:center;padding:24px;font-size:13px;color:var(--muted)">Sin colectas para los filtros seleccionados</div>`;
-    return;
+  // ── HOJA 4: FALTANTES ──
+  const falt=r.filter(x=>x.estado==='NO_COLECTADO');
+  if(falt.length>0){
+    const wfData=[
+      ['STELLANTIS — UNIDADES FALTANTES','','','',''],
+      ['Inventario: '+S.invNombre+' | Fecha: '+fecha,'','','',''],
+      [''],
+      ['VIN','MODELO','UBICACION STOCK','GRUPO','ACCION'],
+      ...falt.map(x=>[x.vin,x.modelo||'',x.ubicacionStock||'',clasificarUbicacion(x.ubicacionStock).grupo,'Busqueda fisica / VIR'])
+    ];
+    const wf=XLSX.utils.aoa_to_sheet(wfData);
+    wf['!cols']=[{wch:20},{wch:22},{wch:16},{wch:18},{wch:22}];
+    wf['!merges']=[{s:{r:0,c:0},e:{r:0,c:4}},{s:{r:1,c:0},e:{r:1,c:4}}];
+    XLSX.utils.book_append_sheet(wb,wf,'Faltantes');
   }
 
-  // Agrupar por lote/sector (box)
-  const grupos = {};
-  for(const c of colectas){
-    const key = c.box || c.sector || 'SIN LOTE';
-    if(!grupos[key]) grupos[key] = {vins:[], operarios:new Set(), archivos:new Set()};
-    grupos[key].vins.push(c.vin);
-    if(c.operario) grupos[key].operarios.add(c.operario);
-    if(c.archivo) grupos[key].archivos.add(c.archivo);
+  // ── HOJA 5: SOBRANTES ──
+  const sobr=r.filter(x=>x.estado==='NO_EN_STOCK'||x.estado==='EN_PRODUCTIVO');
+  if(sobr.length>0){
+    const wsData2=[
+      ['STELLANTIS — UNIDADES SOBRANTES','','',''],
+      ['Inventario: '+S.invNombre+' | Fecha: '+fecha,'','',''],
+      [''],
+      ['VIN','UBICACION PLAYA','ESTADO','ACCION SUGERIDA'],
+      ...sobr.map(x=>[x.vin,x.ubicacionPlaya||'',x.estado,x.estado==='EN_PRODUCTIVO'?'Aguardar confirmacion planta':'Verificar fisico urgente'])
+    ];
+    const ws2=XLSX.utils.aoa_to_sheet(wsData2);
+    ws2['!cols']=[{wch:20},{wch:16},{wch:18},{wch:32}];
+    ws2['!merges']=[{s:{r:0,c:0},e:{r:0,c:3}},{s:{r:1,c:0},e:{r:1,c:3}}];
+    XLSX.utils.book_append_sheet(wb,ws2,'Sobrantes');
   }
 
-  // Ordenar por cantidad desc
-  const sorted = Object.entries(grupos).sort((a,b)=>b[1].vins.length - a[1].vins.length);
-
-  wrap.innerHTML = sorted.map(([lote, g])=>{
-    const ops = [...g.operarios].join(', ') || '—';
-    const total = g.vins.length;
-    // Cruzar con stock: cuantos de estos VINs estan en stock y coinciden ubicacion
-    const enStock = g.vins.filter(v=>S.stock.find(s=>s.vin===v)).length;
-    const noStock = total - enStock;
-
-    return `<div style="margin-bottom:10px;border:1px solid var(--border);border-radius:6px;overflow:hidden">
-      <div style="background:var(--card2);padding:10px 14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="toggleCampoLote('lote-${lote.replace(/[^a-z0-9]/gi,'_')}')">
-        <div style="display:flex;align-items:center;gap:10px">
-          <span style="font-size:18px;font-weight:800;color:var(--accent);font-family:var(--mono);letter-spacing:2px">${lote}</span>
-          <span class="badge b-info">${total} VINs</span>
-          ${noStock>0?`<span class="badge b-warn">${noStock} sin stock</span>`:''}
-        </div>
-        <div style="text-align:right">
-          <div style="font-size:11px;color:var(--muted2)">${ops}</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">&#9660; ver detalle</div>
-        </div>
-      </div>
-      <div id="lote-${lote.replace(/[^a-z0-9]/gi,'_')}" style="display:none;padding:10px 14px">
-        <div style="display:flex;flex-wrap:wrap;gap:5px">
-          ${g.vins.map(v=>{
-            const enSt = S.stock.find(s=>s.vin===v);
-            const color = enSt ? 'var(--ok)' : 'var(--warn)';
-            return `<span style="font-family:var(--mono);font-size:11px;padding:3px 7px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:3px;color:${color}" title="${enSt?'En stock':'No en stock'}">${v.slice(-8)}</span>`;
-          }).join('')}
-        </div>
-        <div style="margin-top:8px;font-size:11px;color:var(--muted)">
-          ${enStock} en stock &nbsp;|&nbsp; ${noStock} no en stock &nbsp;|&nbsp; Colector: ${ops}
-        </div>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function toggleCampoLote(id){
-  const el = document.getElementById(id);
-  if(el) el.style.display = el.style.display==='none' ? '' : 'none';
-}
-
-function exportarCampo(){
-  const fechaFiltro = document.getElementById('campo-fecha')?.value || '';
-  const opFiltro = document.getElementById('campo-operario')?.value || '';
-  let colectas = [...S.colectas];
-  if(fechaFiltro) colectas = colectas.filter(c=>!c.creado_en||c.creado_en.slice(0,10)===fechaFiltro);
-  if(opFiltro) colectas = colectas.filter(c=>c.operario===opFiltro);
-
-  const rows = colectas.map(c=>{
-    const enSt = S.stock.find(s=>s.vin===c.vin);
-    return {
-      LOTE_SECTOR: c.box||c.sector||'',
-      VIN: c.vin,
-      MODELO: enSt?.modelo||'',
-      COLOR: enSt?.color||'',
-      EN_STOCK: enSt?'SI':'NO',
-      OPERARIO: c.operario||'',
-      ARCHIVO: c.archivo||'',
-      FECHA: c.creado_en?new Date(c.creado_en).toLocaleString('es-AR'):''
-    };
-  });
-  if(!rows.length){ toast('Sin datos para exportar','warn'); return; }
-  const ws = XLSX.utils.json_to_sheet(rows);
-  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Campo');
-  XLSX.writeFile(wb, `Campo_${fechaFiltro||'todos'}_${S.invNombre.replace(/\s+/g,'_')}.xlsx`);
-  toast('Exportado OK','ok');
-}
-
-
-// ── Normalizar ubicacion ingresada: "L 1 23" → "L001023", "L123" → "L001023"
-function normalizarUbicacion(raw){
-  // Quitar espacios extra y pasar a mayúsculas
-  let s = raw.trim().toUpperCase().replace(/\s+/g,' ');
-  // Formato: SECTOR CALLE BOX con espacios (ej: "L 1 23" o "A 3 5")
-  const m1 = s.match(/^([ABDGL])\s+(\d+)\s+(\d+)$/);
-  if(m1) return m1[1] + m1[2].padStart(3,'0') + m1[3].padStart(3,'0');
-  // Formato compacto sin espacios (ej: "L0123" o "L123")
-  const m2 = s.match(/^([ABDGL])(\d{1,3})(\d{3})$/);
-  if(m2) return m2[1] + m2[2].padStart(3,'0') + m2[3];
-  // Ya está en formato correcto (ej: "L001023")
-  const m3 = s.match(/^([ABDGL])(\d{3})(\d{3})$/);
-  if(m3) return s;
-  // Lote libre — devolver tal cual
-  return s;
-}
-
-function esUbicacionFisicaValida(ubic){
-  return /^[ABDGL]\d{3}\d{3}$/.test(ubic);
-}
-
-function prodPreviewLote(val){
-  const inp = document.getElementById('prod-lote-inp');
-  inp.value = val.toUpperCase();
-  const norm = normalizarUbicacion(val);
-  const el = document.getElementById('prod-lote-preview');
-  if(!val.trim()){ el.textContent=''; return; }
-  if(esUbicacionFisicaValida(norm)){
-    el.innerHTML = `Ubicacion fisica: <span style="color:var(--accent);font-family:var(--mono);font-weight:700;font-size:16px">${norm}</span>`;
-  } else {
-    el.innerHTML = `Lote: <span style="color:var(--warn);font-family:var(--mono);font-weight:700">${norm}</span>`;
-  }
-}
-
-
-// ═══════════════════════════════════════════════════════════
-// MÓDULO PARQUEO
-// ═══════════════════════════════════════════════════════════
-let pqData = [];           // registros de parqueo
-let pqVinSel = null;       // {vin, chass, ver, fuente}
-let pqTipo = 'fisica';
-let pqSelIds = new Set();  // IDs seleccionados para accion masiva
-let pqBusqueda = '';
-let pqFechaFil = '';
-let pqEstadoFil = '';
-let pqOpFil = '';
-
-async function cargarParqueos(){
-  if(!S.isOnline){
-    pqData = JSON.parse(localStorage.getItem('st_pq')||'[]');
-    pqRefreshBadge(); return;
-  }
-  pqData = await paginarQuery('parqueos','*',{});
-  pqData.sort((a,b)=>new Date(b.creado_en)-new Date(a.creado_en));
-  try { localStorage.setItem('st_pq', JSON.stringify(pqData)); } catch(e){}
-  pqRefreshBadge();
-}
-
-function pqRefreshBadge(){
-  const pend = pqData.filter(p=>p.estado==='PENDIENTE').length;
-  const badge = document.getElementById('badge-parqueo');
-  if(pend>0){ badge.style.display=''; badge.textContent=pend; }
-  else badge.style.display='none';
-  pqUpdateStats();
-}
-
-function pqUpdateStats(){
-  const hoy = new Date().toISOString().slice(0,10);
-  const hoyData = pqData.filter(p=>p.creado_en && p.creado_en.slice(0,10)===hoy);
-  document.getElementById('pq-stat-pend').textContent  = pqData.filter(p=>p.estado==='PENDIENTE').length;
-  document.getElementById('pq-stat-park').textContent  = pqData.filter(p=>p.estado==='PARQUEADO').length;
-  document.getElementById('pq-stat-total').textContent = hoyData.length;
-  // Ultimos 5
-  const el = document.getElementById('pq-recientes');
-  if(!el) return;
-  const recientes = pqData.slice(0,6);
-  el.innerHTML = recientes.length===0
-    ? '<div style="font-size:12px;color:var(--muted)">Sin registros aun</div>'
-    : recientes.map(p=>`
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)">
-        <div>
-          <span class="mono" style="font-size:11px;font-weight:700">${p.chass||p.vin.slice(-7)}</span>
-          <span style="font-size:10px;color:var(--muted2);margin-left:6px">${p.ubicacion}</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:6px">
-          <span class="badge ${p.estado==='PARQUEADO'?'b-ok':p.estado==='PENDIENTE'?'b-warn':'b-muted'}">${p.estado}</span>
-          <span style="font-size:10px;color:var(--muted)">${p.operario||''}</span>
-        </div>
-      </div>`).join('');
-}
-
-// ── BUSCAR ──
-async function pqBuscar(val){
-  const q = val.trim().toUpperCase();
-  const el = document.getElementById('pq-buscar-results');
-  document.getElementById('pq-sel-box').style.display='none';
-  pqVinSel = null;
-  if(q.length<4){ el.innerHTML=''; return; }
-
-  // Buscar en stock primero
-  const stockMatches = S.stock.filter(s=>
-    s.vin.toUpperCase().includes(q) || s.vin.toUpperCase().endsWith(q)
-  ).slice(0,5);
-
-  // Buscar en produccion — consulta Supabase directo
-  let prodMatches = [];
-  if(S.isOnline){
-    const {data:pd} = await sb.from('produccion')
-      .select('vin,previn,chass,ver,esd')
-      .or(`chass.ilike.%${q}%,vin.ilike.%${q}%`)
-      .limit(5);
-    prodMatches = pd||[];
+  // ── HOJA 6: VINs PENDIENTES ──
+  const pends=getPendientes();
+  if(pends.length>0){
+    const wpData=[
+      ['STELLANTIS — VINs PENDIENTES DE COMPLETAR','','','',''],
+      ['Inventario: '+S.invNombre+' | Fecha: '+fecha,'','','',''],
+      [''],
+      ['VIN / PARCIAL','TIPO','NOTA DEL COLECTOR','OPERARIO','VIN COMPLETO A COMPLETAR'],
+      ...pends.map(o=>[o.vin||'',o.tipo,o.texto||'',o.operario||'',''])
+    ];
+    const wp=XLSX.utils.aoa_to_sheet(wpData);
+    wp['!cols']=[{wch:22},{wch:18},{wch:40},{wch:16},{wch:22}];
+    wp['!merges']=[{s:{r:0,c:0},e:{r:0,c:4}},{s:{r:1,c:0},e:{r:1,c:4}}];
+    XLSX.utils.book_append_sheet(wb,wp,'Pendientes');
   }
 
-  // Combinar sin duplicados
-  const vinsMostrados = new Set();
-  const items = [];
-  for(const s of stockMatches){
-    if(!vinsMostrados.has(s.vin)){
-      vinsMostrados.add(s.vin);
-      items.push({vin:s.vin, chass:s.vin.slice(-7), ver:'', fuente:'stock', modelo:s.modelo, boxatura:s.boxatura});
-    }
-  }
-  for(const p of prodMatches){
-    if(!vinsMostrados.has(p.vin)){
-      vinsMostrados.add(p.vin);
-      items.push({vin:p.vin, chass:p.chass||p.vin.slice(-7), ver:p.ver||'', fuente:'produccion', esd:p.esd});
-    }
-  }
-
-  if(items.length===0){
-    el.innerHTML=`<div style="font-size:12px;color:var(--muted);padding:8px 0">No encontrado en stock ni produccion — <button class="btn btn-secondary btn-xs" onclick="pqManual('${q}')">Ingresar manual</button></div>`;
-    return;
-  }
-
-  el.innerHTML=`<div class="manual-suggestions">${items.map(it=>`
-    <div class="manual-sug-item" onclick="pqSeleccionar(${JSON.stringify(JSON.stringify(it))})">
-      <div>
-        <div class="mono" style="font-size:12px;font-weight:700">${hv(it.vin,q)}</div>
-        <div style="font-size:10px;color:var(--muted2)">
-          CHASS: ${it.chass}${it.ver?' · '+it.ver:''}${it.boxatura?' · Stock: '+it.boxatura:''}${it.esd?' · ESD: '+it.esd:''}
-        </div>
-      </div>
-      <span class="badge ${it.fuente==='stock'?'b-info':'b-warn'}">${it.fuente.toUpperCase()}</span>
-    </div>`).join('')}</div>`;
-}
-
-function pqManual(q){
-  // Permitir ingresar VIN manual si no se encuentra
-  pqSeleccionar(JSON.stringify({vin:q, chass:q, ver:'', fuente:'manual'}));
-}
-
-function pqSeleccionar(jsonStr){
-  const it = JSON.parse(jsonStr);
-  pqVinSel = it;
-  document.getElementById('pq-buscar-results').innerHTML='';
-  document.getElementById('pq-buscar-inp').value='';
-  document.getElementById('pq-sel-vin').textContent = it.vin;
-  document.getElementById('pq-sel-chass').textContent = it.chass ? 'CHASS: '+it.chass : '';
-  document.getElementById('pq-sel-ver').textContent = it.ver ? 'VER: '+it.ver : '';
-  document.getElementById('pq-sel-fuente').textContent = it.fuente.toUpperCase();
-  document.getElementById('pq-sel-fuente').className = 'badge '+(it.fuente==='stock'?'b-info':it.fuente==='produccion'?'b-warn':'b-muted');
-  document.getElementById('pq-sel-box').style.display='';
-  pqSetTipo('fisica');
-  pqUpdateCalles(); pqUpdateBoxes(); pqUpdatePreview();
-}
-
-// ── TIPO Y UBICACION ──
-function pqSetTipo(tipo){
-  pqTipo=tipo;
-  document.getElementById('pq-fisica-wrap').style.display=tipo==='fisica'?'':'none';
-  document.getElementById('pq-lote-wrap').style.display=tipo==='lote'?'':'none';
-  document.getElementById('pq-tipo-fisica').className='btn btn-sm '+(tipo==='fisica'?'btn-primary':'btn-secondary');
-  document.getElementById('pq-tipo-lote').className='btn btn-sm '+(tipo==='lote'?'btn-primary':'btn-secondary');
-  document.getElementById('pq-tipo-fisica').style.justifyContent='center';
-  document.getElementById('pq-tipo-lote').style.justifyContent='center';
-}
-
-function pqUpdateCalles(){
-  const s=document.getElementById('pq-sector').value;
-  const calles=SECTORES[s]?.calles||[];
-  document.getElementById('pq-calle').innerHTML=calles.map(c=>`<option value="${c}">${c}</option>`).join('');
-  pqUpdateBoxes();
-}
-
-function pqUpdateBoxes(){
-  const s=document.getElementById('pq-sector').value;
-  const max=SECTORES[s]?.boxes||52;
-  document.getElementById('pq-box').innerHTML=Array.from({length:max},(_,i)=>String(i+1).padStart(3,'0')).map(b=>`<option value="${b}">${b}</option>`).join('');
-  pqUpdatePreview();
-}
-
-function pqUpdatePreview(){
-  const s=document.getElementById('pq-sector').value;
-  const c=document.getElementById('pq-calle').value;
-  const b=document.getElementById('pq-box').value;
-  document.getElementById('pq-ubic-preview').textContent=`${s}${c}${b}`;
-}
-
-function pqPreviewLote(val){
-  document.getElementById('pq-lote-inp').value=val.toUpperCase();
-  const norm=normalizarUbicacion(val);
-  const el=document.getElementById('pq-lote-preview');
-  if(!val.trim()){el.textContent='';return;}
-  if(esUbicacionFisicaValida(norm)){
-    el.innerHTML=`Ubicacion fisica: <span style="color:var(--accent);font-family:var(--mono);font-weight:700;font-size:16px">${norm}</span>`;
-    pqTipo='fisica';
-  } else {
-    el.innerHTML=`Lote: <span style="color:var(--warn);font-family:var(--mono);font-weight:700">${norm}</span>`;
-  }
-}
-
-function pqCancelar(){
-  pqVinSel=null;
-  document.getElementById('pq-sel-box').style.display='none';
-  document.getElementById('pq-buscar-inp').value='';
-  document.getElementById('pq-buscar-results').innerHTML='';
-}
-
-// ── GUARDAR ──
-async function pqGuardar(){
-  if(!pqVinSel){toast('Selecciona un vehiculo primero','warn');return;}
-  let ubicacion='';
-  let tipoFinal=pqTipo;
-  if(pqTipo==='fisica'){
-    ubicacion=document.getElementById('pq-ubic-preview').textContent;
-  } else {
-    const raw=document.getElementById('pq-lote-inp').value.trim();
-    if(!raw){toast('Ingresa el lote o ubicacion','warn');return;}
-    ubicacion=normalizarUbicacion(raw);
-    if(esUbicacionFisicaValida(ubicacion)) tipoFinal='fisica';
-  }
-  const notas=document.getElementById('pq-notas').value.trim();
-  const registro={
-    vin: pqVinSel.vin,
-    chass: pqVinSel.chass||pqVinSel.vin.slice(-7),
-    ubicacion, tipo_ubicacion:tipoFinal,
-    estado:'PENDIENTE',
-    ver: pqVinSel.ver||'',
-    fuente: pqVinSel.fuente||'manual',
-    operario: S.operario||'',
-    notas, creado_en: new Date().toISOString()
-  };
-
-  // Guardar local inmediato
-  pqData.unshift(registro);
-  localStorage.setItem('st_pq', JSON.stringify(pqData));
-  pqRefreshBadge(); pqRenderTabla();
-  pqCancelar();
-
-  // Sync a Supabase
-  if(S.isOnline){
-    const {data, error}=await sb.from('parqueos').insert(registro).select().single();
-    if(error){ toast('Error al guardar: '+error.message,'ko'); return; }
-    // Actualizar con ID real
-    const idx=pqData.findIndex(p=>p.vin===registro.vin&&p.creado_en===registro.creado_en);
-    if(idx>=0) pqData[idx]={...pqData[idx], id:data.id};
-    localStorage.setItem('st_pq', JSON.stringify(pqData));
-    logActividad(`<span>${S.operario||'Operador'}</span> parqueo <span>${registro.chass}</span> en <span>${ubicacion}</span>`);
-  enviarNotificacion('Parqueo registrado',`${registro.chass} → ${ubicacion} (${S.operario||'Operador'})`,'parqueo');
-  } else {
-    S.offlineQueue.push({type:'parqueo', d:registro, ts:Date.now()});
-    saveOQ(); toast('Sin conexion - guardado offline','warn'); return;
-  }
-  toast('Parqueo registrado: '+ubicacion,'ok');
-  pqRenderTabla();
-}
-
-// ── TABLA ADMIN ──
-function pqFiltrar(val){
-  if(val!==undefined) pqBusqueda=(val||'').toUpperCase();
-  pqFechaFil  = document.getElementById('pq-fecha')?.value||'';
-  pqEstadoFil = document.getElementById('pq-fil-estado')?.value||'';
-  pqOpFil     = document.getElementById('pq-fil-op')?.value||'';
-  pqRenderTabla();
-}
-
-function pqRenderTabla(){
-  // Poblar select operarios
-  const ops=[...new Set(pqData.map(p=>p.operario).filter(Boolean))];
-  const selOp=document.getElementById('pq-fil-op');
-  if(selOp){
-    const cur=selOp.value;
-    selOp.innerHTML='<option value="">Todos los operarios</option>'+ops.map(o=>`<option value="${o}" ${o===cur?'selected':''}>${o}</option>`).join('');
-  }
-
-  let data=[...pqData];
-  if(pqBusqueda) data=data.filter(p=>p.vin.includes(pqBusqueda)||(p.chass||'').includes(pqBusqueda)||(p.ubicacion||'').includes(pqBusqueda));
-  if(pqFechaFil) data=data.filter(p=>p.creado_en&&p.creado_en.slice(0,10)===pqFechaFil);
-  if(pqEstadoFil) data=data.filter(p=>p.estado===pqEstadoFil);
-  if(pqOpFil) data=data.filter(p=>p.operario===pqOpFil);
-
-  const MAX=300;
-  const eb=e=>e==='PARQUEADO'?'<span class="badge b-ok">PARQUEADO</span>':e==='PENDIENTE'?'<span class="badge b-warn">PENDIENTE</span>':'<span class="badge b-muted">CANCELADO</span>';
-  const ef=f=>f==='stock'?'<span class="badge b-info">STOCK</span>':f==='produccion'?'<span class="badge b-warn">PROD</span>':'<span class="badge b-muted">MANUAL</span>';
-
-  document.getElementById('pq-tbody').innerHTML=data.slice(0,MAX).map(p=>`
-    <tr id="pq-row-${p.id||''}">
-      <td><input type="checkbox" class="pq-chk" value="${p.id||''}" onchange="pqToggleSel(this)" ${pqSelIds.has(p.id||'')?'checked':''}></td>
-      <td>
-        <div class="mono" style="font-size:11px;font-weight:700">${p.vin}</div>
-        <div style="font-size:10px;color:var(--muted2)">CHASS: ${p.chass||p.vin.slice(-7)}</div>
-      </td>
-      <td class="mono" style="font-weight:700;color:var(--accent);font-size:13px">${p.ubicacion}</td>
-      <td>${p.tipo_ubicacion==='fisica'?'<span class="badge b-info">FISICA</span>':'<span class="badge b-warn">LOTE</span>'}</td>
-      <td>${eb(p.estado)}</td>
-      <td>${ef(p.fuente)}</td>
-      <td style="font-size:11px;color:var(--muted2)">${p.ver||'—'}</td>
-      <td style="font-size:11px;color:var(--muted2)">${p.operario||'—'}</td>
-      <td style="font-size:11px;color:var(--muted2);white-space:nowrap">${p.creado_en?new Date(p.creado_en).toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—'}</td>
-      <td style="font-size:11px;color:var(--muted2);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.notas||''}">${p.notas||'—'}</td>
-      <td>
-        ${p.estado==='PENDIENTE'?`
-          <button class="btn btn-xs btn-ok" onclick="pqCambiarEstado('${p.id||''}','PARQUEADO')">Parqueado</button>
-        `:''}
-        ${p.estado!=='CANCELADO'?`
-          <button class="btn btn-xs btn-secondary" style="color:var(--ko);border-color:var(--ko);margin-top:2px" onclick="pqCambiarEstado('${p.id||''}','CANCELADO')">Cancelar</button>
-        `:''}
-      </td>
-    </tr>`).join('');
-
-  const more=document.getElementById('pq-more');
-  if(data.length>MAX){more.style.display='';more.textContent=`Mostrando ${MAX} de ${data.length}.`;}
-  else more.style.display='none';
-
-  document.getElementById('pq-sel-count').textContent=pqSelIds.size>0?`${pqSelIds.size} seleccionados`:'';
-}
-
-function pqToggleSel(cb){
-  if(cb.checked) pqSelIds.add(cb.value);
-  else pqSelIds.delete(cb.value);
-  document.getElementById('pq-sel-count').textContent=pqSelIds.size>0?`${pqSelIds.size} seleccionados`:'';
-}
-
-function pqSelectAll(checked){
-  document.querySelectorAll('.pq-chk').forEach(cb=>{
-    cb.checked=checked;
-    if(checked) pqSelIds.add(cb.value);
-    else pqSelIds.delete(cb.value);
-  });
-  document.getElementById('pq-sel-count').textContent=pqSelIds.size>0?`${pqSelIds.size} seleccionados`:'';
-}
-
-async function pqCambiarEstado(id, nuevoEstado){
-  const idx=pqData.findIndex(p=>p.id===id);
-  if(idx<0) return;
-  pqData[idx].estado=nuevoEstado;
-  pqData[idx].procesado_por=S.operario||'';
-  pqData[idx].procesado_en=new Date().toISOString();
-  localStorage.setItem('st_pq',JSON.stringify(pqData));
-  pqRefreshBadge(); pqRenderTabla();
-  if(S.isOnline){
-    await sb.from('parqueos').update({estado:nuevoEstado,procesado_por:S.operario||'',procesado_en:new Date().toISOString()}).eq('id',id);
-    logActividad(`<span>${S.operario||'Admin'}</span> marco <span>${pqData[idx].chass||pqData[idx].vin.slice(-7)}</span> como ${nuevoEstado}`);
-  } else {
-    S.offlineQueue.push({type:'pq_estado',d:{id,estado:nuevoEstado,procesado_por:S.operario||'',procesado_en:new Date().toISOString()},ts:Date.now()});
-    saveOQ();
-  }
-  toast(nuevoEstado==='PARQUEADO'?'Marcado como parqueado':'Cancelado');
-}
-
-async function pqMarcarSeleccionados(nuevoEstado){
-  if(pqSelIds.size===0){toast('Selecciona al menos un registro','warn');return;}
-  for(const id of pqSelIds) await pqCambiarEstado(id, nuevoEstado);
-  pqSelIds.clear();
-  document.getElementById('pq-sel-all').checked=false;
-  pqRenderTabla();
-}
-
-function pqExportar(){
-  let data=[...pqData];
-  if(pqFechaFil) data=data.filter(p=>p.creado_en&&p.creado_en.slice(0,10)===pqFechaFil);
-  if(pqEstadoFil) data=data.filter(p=>p.estado===pqEstadoFil);
-  if(pqOpFil) data=data.filter(p=>p.operario===pqOpFil);
-  if(!data.length){toast('Sin datos para exportar','warn');return;}
-  const rows=data.map(p=>({
-    VIN:p.vin, CHASS:p.chass||p.vin.slice(-7),
-    UBICACION:p.ubicacion, TIPO:p.tipo_ubicacion?.toUpperCase(),
-    ESTADO:p.estado, FUENTE:p.fuente?.toUpperCase(),
-    VER:p.ver||'', OPERARIO:p.operario||'',
-    FECHA:p.creado_en?new Date(p.creado_en).toLocaleString('es-AR'):'',
-    PROCESADO_POR:p.procesado_por||'',
-    PROCESADO_EN:p.procesado_en?new Date(p.procesado_en).toLocaleString('es-AR'):'',
-    NOTAS:p.notas||''
-  }));
-  const ws=XLSX.utils.json_to_sheet(rows);
-  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Parqueos');
-  XLSX.writeFile(wb,`Parqueos_${pqFechaFil||'todos'}_${new Date().toLocaleDateString('es-AR').replace(/\//g,'-')}.xlsx`);
-  toast('Exportado OK','ok');
-}
-
-
-// ── COLECTOR PARQUEO (mobile) ──
-let colPqSel=null, colPqTipoActual='fisica';
-
-async function pqBuscarCol(val){
-  const q=val.trim().toUpperCase();
-  const el=document.getElementById('col-pq-results');
-  document.getElementById('col-pq-form').style.display='none'; colPqSel=null;
-  if(q.length<4){el.innerHTML='';return;}
-  const sm=S.stock.filter(s=>s.vin.toUpperCase().includes(q)||s.vin.endsWith(q)).slice(0,4);
-  let pm=[];
-  if(S.isOnline){const{data:cpd}=await sb.from('produccion').select('vin,previn,chass,ver,esd').or(`chass.ilike.%${q}%,vin.ilike.%${q}%`).limit(4);pm=cpd||[];}
-  const items=[]; const seen=new Set();
-  sm.forEach(s=>{if(!seen.has(s.vin)){seen.add(s.vin);items.push({vin:s.vin,chass:s.vin.slice(-7),ver:'',fuente:'stock',boxatura:s.boxatura});}});
-  pm.forEach(p=>{if(!seen.has(p.vin)){seen.add(p.vin);items.push({vin:p.vin,chass:p.chass||p.vin.slice(-7),ver:p.ver||'',fuente:'produccion'});}});
-  if(items.length===0){el.innerHTML=`<div style="font-size:12px;color:var(--muted);padding:8px 0">No encontrado — <button class="touch-btn" style="padding:6px 10px;font-size:11px;display:inline-flex" onclick="colPqManual('${q}')">Ingresar manual</button></div>`;return;}
-  el.innerHTML=`<div class="manual-suggestions">${items.map(it=>`<div class="manual-sug-item" onclick="colPqSel2('${it.vin}','${it.chass}','${it.ver}','${it.fuente}','${it.boxatura||''}')"><div><div class="mono" style="font-size:12px;font-weight:700">${hv(it.vin,q)}</div><div style="font-size:10px;color:var(--muted2)">CHASS: ${it.chass}${it.ver?' · '+it.ver:''}${it.boxatura?' · '+it.boxatura:''}</div></div><span class="badge ${it.fuente==='stock'?'b-info':'b-warn'}">${it.fuente==='stock'?'STOCK':'PROD'}</span></div>`).join('')}</div>`;
-}
-
-function colPqManual(q){ colPqSel2(q,q,'','manual',''); }
-
-function colPqSel2(vin,chass,ver,fuente,box){
-  colPqSel={vin,chass,ver,fuente};
-  document.getElementById('col-pq-results').innerHTML='';
-  document.getElementById('col-pq-inp').value='';
-  document.getElementById('col-pq-vin').textContent=vin;
-  document.getElementById('col-pq-info').textContent=[chass?'CHASS: '+chass:'',ver?'VER: '+ver:'',box?'Stock: '+box:'',fuente.toUpperCase()].filter(Boolean).join(' · ');
-  document.getElementById('col-pq-form').style.display='';
-  colPqSetTipo('fisica'); colPqCalles(); colPqBoxes(); colPqPreview();
-}
-
-function colPqSetTipo(t){
-  colPqTipoActual=t;
-  document.getElementById('col-pq-fisica').style.display=t==='fisica'?'':'none';
-  document.getElementById('col-pq-lote').style.display=t==='lote'?'':'none';
-  document.getElementById('col-pq-tipo-fisica').className='touch-btn '+(t==='fisica'?'primary':'');
-  document.getElementById('col-pq-tipo-lote').className='touch-btn '+(t==='lote'?'ok':'');
-}
-
-function colPqCalles(){const s=document.getElementById('col-pq-sector').value;const cl=SECTORES[s]?.calles||[];document.getElementById('col-pq-calle').innerHTML=cl.map(c=>`<option value="${c}">${c}</option>`).join('');colPqBoxes();}
-function colPqBoxes(){const s=document.getElementById('col-pq-sector').value;const max=SECTORES[s]?.boxes||52;document.getElementById('col-pq-box').innerHTML=Array.from({length:max},(_,i)=>String(i+1).padStart(3,'0')).map(b=>`<option value="${b}">${b}</option>`).join('');colPqPreview();}
-function colPqPreview(){const s=document.getElementById('col-pq-sector').value,c=document.getElementById('col-pq-calle').value,b=document.getElementById('col-pq-box').value;document.getElementById('col-pq-preview').textContent=`${s}${c}${b}`;}
-function colPqPreviewLote(val){document.getElementById('col-pq-lote-inp').value=val.toUpperCase();const norm=normalizarUbicacion(val);const el=document.getElementById('col-pq-lote-prev');if(!val.trim()){el.textContent='';return;}if(esUbicacionFisicaValida(norm)){el.innerHTML=`Fisica: <span style="color:var(--accent);font-family:var(--mono);font-weight:700">${norm}</span>`;colPqTipoActual='fisica';}else{el.innerHTML=`Lote: <span style="color:var(--warn);font-family:var(--mono);font-weight:700">${norm}</span>`;}}
-function colPqCancelar(){colPqSel=null;document.getElementById('col-pq-form').style.display='none';document.getElementById('col-pq-inp').value='';document.getElementById('col-pq-results').innerHTML='';}
-async function colPqGuardar(){
-  if(!colPqSel){toast('Selecciona un vehiculo','warn');return;}
-  let ubicacion='',tipoFinal=colPqTipoActual;
-  if(colPqTipoActual==='fisica'){ubicacion=document.getElementById('col-pq-preview').textContent;}
-  else{const raw=document.getElementById('col-pq-lote-inp').value.trim();if(!raw){toast('Ingresa el lote','warn');return;}ubicacion=normalizarUbicacion(raw);if(esUbicacionFisicaValida(ubicacion))tipoFinal='fisica';}
-  const notas=document.getElementById('col-pq-notas').value.trim();
-  const reg={vin:colPqSel.vin,chass:colPqSel.chass,ubicacion,tipo_ubicacion:tipoFinal,estado:'PENDIENTE',ver:colPqSel.ver||'',fuente:colPqSel.fuente||'manual',operario:S.operario||'',notas,creado_en:new Date().toISOString()};
-  pqData.unshift(reg);localStorage.setItem('st_pq',JSON.stringify(pqData));pqRefreshBadge();
-  colPqCancelar();document.getElementById('col-pq-notas').value='';
-  if(S.isOnline){const{error}=await sb.from('parqueos').insert(reg);if(error){toast('Error: '+error.message,'ko');return;}logActividad(`<span>${S.operario||'Colector'}</span> parqueo <span>${reg.chass}</span> en <span>${ubicacion}</span>`);}
-  else{S.offlineQueue.push({type:'parqueo',d:reg,ts:Date.now()});saveOQ();toast('Sin conexion - guardado offline','warn');return;}
-  toast('Parqueo guardado: '+ubicacion,'ok');
-}
-
-// ═══════════════════════════════════════════════════════════
-// ROL: detección automática por ancho de pantalla
-// < 1024px = COLECTOR, >= 1024px = ADMIN
-// ═══════════════════════════════════════════════════════════
-let ROL = window.innerWidth < 1024 ? 'colector' : 'admin';
-
-function aplicarRol(){
-  if(ROL === 'colector'){
-    document.getElementById('app').style.display = 'none';
-    document.getElementById('colector-home').style.display = 'flex';
-    colUpdateOfflineUI();
-  } else {
-    document.getElementById('app').style.display = 'flex';
-    document.getElementById('colector-home').style.display = 'none';
-    document.getElementById('tb-rol-badge').style.display = '';
-  }
-}
-
-// Re-evaluar si cambia el tamaño (ej: rotar tablet, resize PC)
-window.addEventListener('resize', ()=>{
-  const nuevoRol = window.innerWidth < 1024 ? 'colector' : 'admin';
-  if(nuevoRol !== ROL){ ROL = nuevoRol; aplicarRol(); if(ROL==='colector') colRefresh(); }
-});
-
-// ═══════════════════════════════════════════════════════════
-// COLECTOR — offline UI
-// ═══════════════════════════════════════════════════════════
-function colUpdateOfflineUI(){
-  const banner = document.getElementById('col-offline-banner');
-  const cnt = S.offlineQueue.length;
-  if(!S.isOnline){ banner.style.display='flex'; document.getElementById('col-pending-txt').textContent = cnt+' pendientes'; }
-  else { banner.style.display='none'; }
-  // también actualizar el admin
-  updateOfflineUI();
-}
-
-// ═══════════════════════════════════════════════════════════
-// COLECTOR — tabs y stats
-// ═══════════════════════════════════════════════════════════
-function colTab(id){
-  document.querySelectorAll('.col-tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.col-page').forEach(p=>p.classList.remove('active'));
-  document.getElementById('col-tab-'+id).classList.add('active');
-  document.getElementById('col-page-'+id).classList.add('active');
-  if(id==='buscar') setTimeout(()=>document.getElementById('col-buscar-inp').focus(), 100);
-  if(id==='lote') colLoteRenderCheck();
-  if(id==='fija') { colScInitCalles(); colScRestaurarPosicion(); }
-  if(id==='parqueo'){ colPqCalles(); colPqBoxes(); colPqPreview(); }
-}
-
-function colRefresh(){
-  document.getElementById('col-inv-nombre').textContent = S.invNombre || 'Sin inventario';
-  document.getElementById('col-operario-txt').textContent = S.operario || 'Toca para identificarte';
-  colUpdateStats();
-  colCargarInvList();
-}
-
-function colUpdateStats(){
-  const tieneInv = !!S.invId;
-  // Caja inventario activo
-  document.getElementById('col-inv-activo-box').style.display = tieneInv ? '' : 'none';
-  document.getElementById('col-no-inv').style.display = tieneInv ? 'none' : '';
-  document.getElementById('col-stats-wrap').style.display = tieneInv ? '' : 'none';
-  document.getElementById('col-inv-list-title').textContent = tieneInv ? 'OTROS INVENTARIOS' : 'INVENTARIOS DISPONIBLES';
-  if(tieneInv){
-    document.getElementById('col-inv-activo-nombre').textContent = S.invNombre;
-    document.getElementById('col-inv-activo-fecha').textContent = S.invFecha;
-  }
-  const r=S.resultados, t=S.stock.length, col=r.filter(x=>x.ubicacionPlaya).length;
-  document.getElementById('cs-stock').textContent = t;
-  document.getElementById('cs-ok').textContent = r.filter(x=>x.estado==='OK').length;
-  document.getElementById('cs-ko').textContent = r.filter(x=>x.estado!=='OK'&&x.estado!=='NO_EN_STOCK').length;
-  document.getElementById('cs-col').textContent = col;
-  document.getElementById('cs-nos').textContent = r.filter(x=>x.estado==='NO_EN_STOCK').length;
-  document.getElementById('cs-ncol').textContent = t - col;
-  const pct = t > 0 ? Math.round((col/t)*100) : 0;
-  document.getElementById('cs-bar').style.width = pct+'%';
-}
-
-async function colCargarInvList(){
-  const el = document.getElementById('col-inv-list');
-  if(!S.isOnline){ el.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px">Sin conexion — no se pueden listar inventarios</div>'; return; }
-  el.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px">Cargando...</div>';
-  const {data} = await sb.from('inventarios').select('*').order('creado_en',{ascending:false}).limit(10);
-  if(!data||data.length===0){ el.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px">Sin inventarios</div>'; return; }
-  el.innerHTML = data.map(inv=>{
-    const esActivo = inv.id === S.invId;
-    return `<div style="background:var(--card);border:1px solid ${esActivo?'var(--accent)':'var(--border)'};border-radius:6px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center">
-      <div>
-        <div style="font-weight:700;font-size:14px;color:${esActivo?'var(--accent)':'var(--text)'}">${inv.nombre}${esActivo?' ✓':''}</div>
-        <div style="font-size:11px;color:var(--muted2)">${inv.fecha}</div>
-      </div>
-      ${esActivo
-        ? '<span style="font-size:10px;color:var(--accent);font-weight:700;letter-spacing:1px">ACTIVO</span>'
-        : `<button class="touch-btn primary" style="padding:8px 14px;font-size:12px" onclick="colAbrirInv('${inv.id}')">Cargar</button>`}
-    </div>`;
-  }).join('');
-}
-
-async function colAbrirInv(id){
-  document.getElementById('col-inv-list').innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:16px">Cargando inventario...</div>';
-  await cargarInventario(id);
-  colRefresh();
-  toast('Inventario cargado: '+S.invNombre,'ok');
-}
-
-function colCambiarInv(){
-  // Limpia el inventario activo y muestra lista
-  S.invId=null; S.invNombre=''; S.invFecha='';
-  S.stock=[]; S.colectas=[]; S.resultados=[];
-  localStorage.removeItem('st_inv_id');
-  colRefresh();
-}
-
-// ═══════════════════════════════════════════════════════════
-// COLECTOR — BUSCADOR
-// ═══════════════════════════════════════════════════════════
-function buscarChasisCol(val){
-  const el = document.getElementById('col-buscar-results');
-  if(val.length<5){ el.innerHTML=''; return; }
-  const q = val.toUpperCase().trim();
-  const sm = S.stock.filter(s=>s.vin.toUpperCase().includes(q));
-  const cn = S.colectas.filter(c=>c.vin.toUpperCase().includes(q)&&!S.stock.find(s=>s.vin===c.vin));
-  if(sm.length===0&&cn.length===0){ el.innerHTML='<div style="font-size:13px;color:var(--muted);padding:10px 0">Sin resultados</div>'; return; }
-  let html='';
-  for(const s of sm.slice(0,8)){
-    const col=S.colectas.find(c=>c.vin===s.vin);
-    const es=col?(col.box===s.boxatura?'OK':'Playa: '+col.box):'No colectado';
-    const ec=col?(col.box===s.boxatura?'var(--ok)':'var(--warn)'):'var(--muted2)';
-    html+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:12px 14px;margin-bottom:8px">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div class="mono" style="font-size:12px;letter-spacing:1px">${hv(s.vin,q)}</div>
-        <div style="font-size:22px;font-weight:800;color:var(--accent);letter-spacing:2px;font-family:var(--mono)">${s.boxatura||'?'}</div>
-      </div>
-      <div style="display:flex;justify-content:space-between;margin-top:4px">
-        <div style="font-size:11px;color:var(--muted2)">${s.modelo||''}</div>
-        <div style="font-size:11px;color:${ec}">${es}</div>
-      </div>
-    </div>`;
-  }
-  for(const c of cn.slice(0,4)){
-    html+=`<div style="background:var(--card);border:1px solid var(--warn);border-radius:6px;padding:12px 14px;margin-bottom:8px">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div class="mono" style="font-size:12px">${hv(c.vin,q)}</div>
-        <div style="font-size:20px;font-weight:800;color:var(--warn);font-family:var(--mono)">${c.box}</div>
-      </div>
-      <div style="font-size:10px;color:var(--warn);margin-top:3px">En playa sin stock</div>
-    </div>`;
-  }
-  el.innerHTML = html;
-}
-
-// ═══════════════════════════════════════════════════════════
-// COLECTOR — LOTE
-// ═══════════════════════════════════════════════════════════
-let colPendingConflict = null;
-
-function colLoteRenderCheck(){
-  document.getElementById('col-lote-config').style.display = S.loteActivo ? 'none' : '';
-  document.getElementById('col-lote-activo').style.display = S.loteActivo ? '' : 'none';
-  if(S.loteActivo){ colLoteRenderList(); document.getElementById('col-lote-nombre-disp').textContent=S.loteActivo.nombre; }
-}
-
-function colLoteIniciar(){
-  const n = document.getElementById('col-lote-nombre').value.trim().toUpperCase();
-  if(!n){ toast('Ingresa el nombre del lote','warn'); return; }
-  S.loteActivo = {nombre:n, vins:[]};
-  document.getElementById('col-lote-nombre').value='';
-  document.getElementById('badge-lote').style.display=''; // sync admin badge
-  colLoteRenderCheck();
-  setTimeout(()=>document.getElementById('col-lote-scan').focus(),150);
-}
-
-function colLoteScan(val){
-  if(val.length<6) return;
-  const vin = val.trim().slice(0,17).toUpperCase();
-  document.getElementById('col-lote-scan').value='';
-  colLoteAgregarVin(vin);
-}
-
-function colLoteAgregarVin(vin){
-  if(!S.loteActivo) return;
-  const dupL = S.loteActivo.vins.find(v=>v.vin===vin);
-  if(dupL){ document.getElementById('col-lote-conflict-msg').textContent=`El VIN ${vin} ya está en este lote (pos. ${S.loteActivo.vins.indexOf(dupL)+1}).`; document.getElementById('col-lote-conflict').style.display=''; colPendingConflict=vin; return; }
-  const dupO = S.colectas.find(c=>c.vin===vin);
-  if(dupO){ document.getElementById('col-lote-conflict-msg').textContent=`El VIN ${vin} ya fue colectado en "${dupO.box}". Si confirmás se actualizará a "${S.loteActivo.nombre}".`; document.getElementById('col-lote-conflict').style.display=''; colPendingConflict=vin; return; }
-  colLoteAgregarConfirmado(vin);
-}
-
-function colLoteConflictoConfirmar(){ if(colPendingConflict){ colLoteAgregarConfirmado(colPendingConflict); colPendingConflict=null; } document.getElementById('col-lote-conflict').style.display='none'; }
-function colLoteConflictoRechazar(){ colPendingConflict=null; document.getElementById('col-lote-conflict').style.display='none'; document.getElementById('col-lote-scan').focus(); }
-
-function colLoteAgregarConfirmado(vin){vibrar('scan');
-  S.loteActivo.vins.unshift({vin,ts:Date.now()});
-  document.getElementById('col-lote-counter').textContent = S.loteActivo.vins.length;
-  document.getElementById('col-lote-undo').disabled = false;
-  colLoteRenderList();
-  document.getElementById('col-lote-scan').focus();
-}
-
-function colLoteDeshacer(){
-  if(!S.loteActivo||S.loteActivo.vins.length===0) return;
-  const r = S.loteActivo.vins.shift();
-  document.getElementById('col-lote-counter').textContent = S.loteActivo.vins.length;
-  if(S.loteActivo.vins.length===0) document.getElementById('col-lote-undo').disabled=true;
-  colLoteRenderList(); toast('Removido: '+r.vin.slice(-7));
-}
-
-function colLoteRenderList(){
-  const el = document.getElementById('col-lote-list');
-  if(!S.loteActivo||S.loteActivo.vins.length===0){ el.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:10px 0">Sin VINs aún</div>'; return; }
-  el.innerHTML = S.loteActivo.vins.slice(0,15).map((v,i)=>`
-    <div class="lote-vin-item"><span style="font-size:10px;color:var(--muted);min-width:22px">${i+1}</span><span class="lote-vin-txt">${v.vin}</span><span style="font-size:9px;color:var(--muted)">${v.vin.slice(-7)}</span></div>`).join('') +
-    (S.loteActivo.vins.length>15 ? `<div style="font-size:10px;color:var(--muted);text-align:center;padding:4px">... y ${S.loteActivo.vins.length-15} más</div>` : '');
-}
-
-async function colLoteConfirmar(){
-  if(!S.loteActivo||S.loteActivo.vins.length===0){ toast('No hay VINs en el lote','warn'); return; }
-  const {nombre,vins} = S.loteActivo;
-  await subirColectaBulk(vins,nombre);
-  enviarNotificacion('Lote confirmado',''+nombre+': '+vins.length+' unidades por '+(S.operario||'Colector'),'lote');
-  S.loteActivo=null;
-  document.getElementById('badge-lote').style.display='none';
-  colLoteRenderCheck();
-  colUpdateStats();
-}
-
-function colLoteCancelar(){
-  if(!confirm('Cancelar lote '+S.loteActivo?.nombre+'?')) return;
-  S.loteActivo=null;
-  document.getElementById('badge-lote').style.display='none';
-  colLoteRenderCheck();
-}
-
-// ═══════════════════════════════════════════════════════════
-// COLECTOR — PLAYA FIJA (estado propio, sincronizado)
-// ═══════════════════════════════════════════════════════════
-let colSc = {sector:'A', calle:'001', dir:'asc', idx:0, boxes:[], sesion:{ok:0,ko:0,vac:0}};
-
-function colScInitCalles(){
-  const s = document.getElementById('col-sc-sector').value;
-  colSc.sector = s;
-  const calles = SECTORES[s]?.calles||[];
-  const sel = document.getElementById('col-sc-calle');
-  sel.innerHTML = calles.map(c=>`<option value="${c}">${s}${c}</option>`).join('');
-  colSc.calle = calles[0]||'001'; sel.value=colSc.calle;
-  colScReconstruirBoxes();
-}
-
-function colScSectorChange(){ colScInitCalles(); colScRestaurarPosicion(); }
-function colScCalleChange(){ colSc.calle=document.getElementById('col-sc-calle').value; colScReconstruirBoxes(); colScRestaurarPosicion(); }
-
-function colSetDir(){
-  colSc.dir = colSc.dir==='asc'?'desc':'asc';
-  document.getElementById('col-btn-dir').textContent = colSc.dir==='asc'?'Asc':'Desc';
-  colScReconstruirBoxes();
-}
-
-function colScReconstruirBoxes(){
-  const max = SECTORES[colSc.sector]?.boxes||52;
-  const b = Array.from({length:max},(_,i)=>String(i+1).padStart(3,'0'));
-  colSc.boxes = colSc.dir==='asc'?b:[...b].reverse();
-  colSc.idx=0; colScRender();
-}
-
-function colScRender(){
-  const box = colSc.boxes[colSc.idx]; if(!box) return;
-  const ubic = `${colSc.sector}${colSc.calle}${box}`;
-  document.getElementById('col-sc-ubic').textContent = ubic;
-  document.getElementById('col-sc-tipo').textContent = `${SECTORES[colSc.sector]?.tipo} - Sector ${colSc.sector} - Calle ${colSc.calle}`;
-  const si = S.stock.find(s=>s.boxatura===ubic);
-  const expEl = document.getElementById('col-sc-exp');
-  if(si){ expEl.textContent='...'+si.vin.slice(-7); expEl.style.color='var(--text)'; }
-  else{ expEl.textContent='VACÍO'; expEl.style.color='var(--muted)'; }
-  // Mostrar/ocultar botón "Esta OK"
-  const eow=document.getElementById('col-esta-ok-wrap');if(eow)eow.style.display=si?'':'none';
-  const pv = S.validFijas.find(v=>v.ubicacion===ubic);
-  if(pv) colScMostrarResultado(pv.resultado); else colScLimpiarResultado();
-  const t=colSc.boxes.length;
-  document.getElementById('col-sc-progress').textContent=`${colSc.idx+1} / ${t}`;
-  document.getElementById('col-btn-prev').disabled = colSc.idx===0;
-  document.getElementById('col-btn-next').disabled = colSc.idx>=t-1;
-  localStorage.setItem(`st_pos_col_${S.invId}_${colSc.sector}_${colSc.calle}`, ubic);
-}
-
-function colScMove(d){ colSc.idx=Math.max(0,Math.min(colSc.boxes.length-1,colSc.idx+d)); colScLimpiarResultado(); colScRender(); }
-
-function colScRestaurarPosicion(){
-  if(!S.invId) return;
-  const sv = localStorage.getItem(`st_pos_col_${S.invId}_${colSc.sector}_${colSc.calle}`);
-  if(sv&&sv.length===7){ const b=sv.slice(4,7); const idx=colSc.boxes.findIndex(bx=>bx===b); if(idx>=0){ colSc.idx=idx; colScRender(); return; } }
-  if(colSc.boxes.length>0) colScRender();
-}
-
-function colScInput(val){ if(val.length<6) return; colScProcesarVin(val.trim().slice(0,17).toUpperCase()); }
-
-function colScProcesarVin(scaneado){
-  const ubic = document.getElementById('col-sc-ubic').textContent;
-  const si = S.stock.find(s=>s.boxatura===ubic); const ve=si?.vin||null;
-  let r; if(!ve)r='INESPERADO'; else if(scaneado===ve||scaneado===ve.slice(-7))r='COINCIDE'; else r='OTRO_VIN';
-  guardarValidFija({ubicacion:ubic,vin_esperado:ve,vin_encontrado:scaneado,resultado:r});
-  colActualizarSesion(r); colScMostrarResultado(r);
-  setTimeout(()=>colScMove(1),1200);
-}
-
-function colScEstaOK(){
-  const ubic=document.getElementById('col-sc-ubic').textContent;
-  const si=S.stock.find(s=>s.boxatura===ubic);
-  if(!si) return;
-  guardarValidFija({ubicacion:ubic,vin_esperado:si.vin,vin_encontrado:si.vin,resultado:'COINCIDE'});
-  colActualizarSesion('COINCIDE');
-  colScMostrarResultado('COINCIDE');
-  setTimeout(()=>colScMove(1),700);
-}
-function colScVacioOK(){
-  const ubic = document.getElementById('col-sc-ubic').textContent;
-  const si = S.stock.find(s=>s.boxatura===ubic); const r=si?'VACIO_INESPERADO':'VACIO_OK';
-  guardarValidFija({ubicacion:ubic,vin_esperado:si?.vin||null,vin_encontrado:null,resultado:r});
-  colActualizarSesion(r); colScMostrarResultado(r); setTimeout(()=>colScMove(1),800);
-}
-
-function colScSaltar(){
-  const ubic = document.getElementById('col-sc-ubic').textContent;
-  const si = S.stock.find(s=>s.boxatura===ubic);
-  guardarValidFija({ubicacion:ubic,vin_esperado:si?.vin||null,vin_encontrado:null,resultado:'NO_VERIFICADO'});
-  colScMove(1);
-}
-
-function colActualizarSesion(r){
-  if(r==='COINCIDE'||r==='VACIO_OK'){colSc.sesion.ok++;vibrar('ok');}
-  else if(r==='OTRO_VIN'||r==='VACIO_INESPERADO'||r==='INESPERADO'){colSc.sesion.ko++;vibrar('ko');}
-  if(r==='VACIO_OK') colSc.sesion.vac++;
-  document.getElementById('col-ses-ok').textContent=colSc.sesion.ok;
-  document.getElementById('col-ses-ko').textContent=colSc.sesion.ko;
-  document.getElementById('col-ses-vac').textContent=colSc.sesion.vac;
-}
-
-function colScMostrarResultado(res){
-  const[lbl,cls]=RL[res]||[res,'sr-warn'];
-  const el=document.getElementById('col-sc-result');
-  el.className='touch-result '+cls.replace('sr-','touch-res-'); // reusar colores
-  el.textContent=lbl; el.style.display='';
-  // aplicar colores manualmente
-  const cmap={COINCIDE:'rgba(34,197,94,.15)',VACIO_OK:'rgba(99,102,241,.15)',OTRO_VIN:'rgba(239,68,68,.15)',VACIO_INESPERADO:'rgba(239,68,68,.15)',INESPERADO:'rgba(245,158,11,.15)',NO_VERIFICADO:'rgba(90,90,120,.2)'};
-  const bmap={COINCIDE:'rgba(34,197,94,.3)',VACIO_OK:'rgba(99,102,241,.3)',OTRO_VIN:'rgba(239,68,68,.3)',VACIO_INESPERADO:'rgba(239,68,68,.3)',INESPERADO:'rgba(245,158,11,.3)',NO_VERIFICADO:'rgba(90,90,120,.3)'};
-  const tmap={COINCIDE:'var(--ok)',VACIO_OK:'var(--info)',OTRO_VIN:'var(--ko)',VACIO_INESPERADO:'var(--ko)',INESPERADO:'var(--warn)',NO_VERIFICADO:'var(--muted2)'};
-  el.style.background=cmap[res]||'rgba(90,90,120,.2)';
-  el.style.border='1px solid '+(bmap[res]||'rgba(90,90,120,.3)');
-  el.style.color=tmap[res]||'var(--muted2)';
-  const csi=document.getElementById('col-sc-inp');csi.value='';csi.style.display='none';if(isTouchDevice())csi.blur();
-}
-
-function colScLimpiarResultado(){
-  document.getElementById('col-sc-result').style.display='none';
-  const inp=document.getElementById('col-sc-inp'); inp.style.display=''; inp.value='';
-  // Nunca focus() en dispositivos táctiles — evita el teclado virtual
-}
-
-// Extender manualConfirmar para colector
-const _origManualConfirmar = manualConfirmar;
-window.manualConfirmar = function(){
-  if(!manualSelectedVin) return;
-  const vin = manualSelectedVin;
-  closeModal('modal-manual'); manualSelectedVin=null;
-  if(manualCallback==='lote') loteAgregarVin(vin);
-  else if(manualCallback==='scanner') scProcesarVin(vin.slice(0,17).toUpperCase());
-  else if(manualCallback==='col-lote') colLoteAgregarVin(vin);
-  else if(manualCallback==='col-scanner') colScProcesarVin(vin.slice(0,17).toUpperCase());
-  manualCallback=null;
-};
-
-
-
-// ═══════════════════════════════════════════════════════════
-// INVENTARIO PARCIAL
-// ═══════════════════════════════════════════════════════════
-let parcialSectoresSeleccionados = new Set();
-let parcialResultados = [];
-let parcialFiltroActual = 'TODOS';
-
-function parcialInit(){
-  // Construir chips de sectores disponibles a partir del stock y colectas
-  const todos = new Set();
-  for(const s of S.stock){
-    const {subgrupo} = clasificarUbicacion(s.boxatura);
-    if(subgrupo && subgrupo!=='?') todos.add(subgrupo);
-  }
-  for(const c of S.colectas){
-    const {subgrupo} = clasificarUbicacion(c.box);
-    if(subgrupo && subgrupo!=='?') todos.add(subgrupo);
-  }
-  for(const vf of S.validFijas){
-    if(vf.resultado==='COINCIDE'&&vf.ubicacion){
-      const {subgrupo} = clasificarUbicacion(vf.ubicacion);
-      if(subgrupo && subgrupo!=='?') todos.add(subgrupo);
-    }
-  }
-
-  // Ordenar por grupo y luego subgrupo
-  const sorted = [...todos].sort((a,b)=>{
-    const ga = clasificarUbicacion(a).grupo;
-    const gb = clasificarUbicacion(b).grupo;
-    if(ga!==gb) return ga.localeCompare(gb);
-    return a.localeCompare(b);
-  });
-
-  const el = document.getElementById('parcial-sector-chips');
-  if(!el) return;
-
-  // Agrupar visualmente
-  let grupoActual = '';
-  let html = '';
-  for(const sub of sorted){
-    const {grupo} = clasificarUbicacion(sub);
-    if(grupo!==grupoActual){
-      grupoActual = grupo;
-      html += `<div style="width:100%;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin:8px 0 4px;padding-top:4px;border-top:1px solid var(--border)">${grupo}</div>`;
-    }
-    const sel = parcialSectoresSeleccionados.has(sub);
-    // Contar stock en este subgrupo
-    const enStock = S.stock.filter(s=>clasificarUbicacion(s.boxatura).subgrupo===sub).length;
-    const colectado = [...S.colectas,...S.validFijas.filter(v=>v.resultado==='COINCIDE').map(v=>({box:v.ubicacion}))].filter(c=>clasificarUbicacion(c.box||c.ubicacion).subgrupo===sub).length;
-    html += `<button class="chip ${sel?'active':''}" 
-      onclick="parcialToggleSector('${sub}')" 
-      title="${enStock} en stock, ${colectado} colectados">
-      ${sub}
-      <span style="opacity:.6;margin-left:3px">${enStock}</span>
-    </button>`;
-  }
-  el.innerHTML = html;
-
-  const count = parcialSectoresSeleccionados.size;
-  const btn = document.getElementById('parcial-btn-analizar');
-  if(btn) btn.disabled = count===0;
-  const cnt = document.getElementById('parcial-sector-count');
-  if(cnt) cnt.textContent = count>0 ? `${count} sector${count>1?'es':''} seleccionado${count>1?'s':''}` : '';
-}
-
-function parcialToggleSector(sub){
-  if(parcialSectoresSeleccionados.has(sub)) parcialSectoresSeleccionados.delete(sub);
-  else parcialSectoresSeleccionados.add(sub);
-  parcialInit();
-}
-
-function parcialSelAll(){
-  // Seleccionar todos los chips visibles
-  const chips = document.querySelectorAll('#parcial-sector-chips .chip');
-  chips.forEach(c=>{
-    const sub = c.textContent.trim().split(/\s+/)[0];
-    if(sub) parcialSectoresSeleccionados.add(sub);
-  });
-  parcialInit();
-}
-
-function parcialClearAll(){
-  parcialSectoresSeleccionados.clear();
-  document.getElementById('parcial-resultados').style.display='none';
-  parcialInit();
-}
-
-function parcialAnalizar(){
-  if(parcialSectoresSeleccionados.size===0) return;
-  const sels = parcialSectoresSeleccionados;
-
-  // ── Mapa de colectas para los sectores seleccionados ──
-  // Incluye lotes/excel Y validaciones fija COINCIDE
-  const colectadoEnSector = {}; // vin → ubicacion_colectada
-  for(const c of S.colectas){
-    const {subgrupo} = clasificarUbicacion(c.box);
-    if(sels.has(subgrupo)) colectadoEnSector[c.vin] = c.box;
-  }
-  for(const vf of S.validFijas){
-    if(vf.resultado==='COINCIDE' && vf.vin_esperado){
-      const {subgrupo} = clasificarUbicacion(vf.ubicacion);
-      if(sels.has(subgrupo) && !colectadoEnSector[vf.vin_esperado])
-        colectadoEnSector[vf.vin_esperado] = vf.ubicacion;
-    }
-  }
-
-  // ── Stock en los sectores seleccionados ──
-  const stockEnSector = S.stock.filter(s=>sels.has(clasificarUbicacion(s.boxatura).subgrupo));
-
-  // ── Stock en otros sectores (para detectar desplazados) ──
-  const stockFueraSector = new Map();
-  for(const s of S.stock){
-    if(!sels.has(clasificarUbicacion(s.boxatura).subgrupo)) stockFueraSector.set(s.vin,s);
-  }
-
-  const vsStock = new Set(S.stock.map(s=>s.vin));
-  const vsProd  = new Set((window._vinsProd||[]).map(v=>v));
-
-  const res = [];
-  const vinsProcesados = new Set();
-
-  // A) Unidades que DEBERÍAN estar en los sectores seleccionados
-  for(const s of stockEnSector){
-    vinsProcesados.add(s.vin);
-    const ubicCol = colectadoEnSector[s.vin];
-    // También buscar si fue colectado en OTRO sector
-    const colFuera = S.colectas.find(c=>{
-      const {subgrupo}=clasificarUbicacion(c.box);
-      return c.vin===s.vin && !sels.has(subgrupo);
-    }) || S.validFijas.find(v=>{
-      const {subgrupo}=clasificarUbicacion(v.ubicacion);
-      return v.vin_esperado===s.vin && v.resultado==='COINCIDE' && !sels.has(subgrupo);
-    });
-
-    let estado, accion;
-    if(ubicCol){
-      // Fue encontrado en el sector
-      if(ubicCol===s.boxatura){ estado='OK'; accion='—'; }
-      else { estado='OK'; accion='Verificar ubicacion exacta'; }
-    } else if(colFuera){
-      // Fue encontrado pero en OTRO sector
-      const ubicFuera = colFuera.box||colFuera.ubicacion;
-      estado='MAL_UBICADO'; accion=`Reparquear de ${ubicFuera} → ${s.boxatura}`;
-      res.push({vin:s.vin,modelo:s.modelo,ubicStock:s.boxatura,ubicCol:ubicFuera,estado,accion,grupo:clasificarUbicacion(s.boxatura).subgrupo});
-      continue;
-    } else {
-      estado='NO_ENCONTRADO'; accion='Verificar físico o marcar VIR';
-    }
-    res.push({vin:s.vin,modelo:s.modelo,ubicStock:s.boxatura,ubicCol:ubicCol||null,estado,accion,grupo:clasificarUbicacion(s.boxatura).subgrupo});
-  }
-
-  // B) Unidades ENCONTRADAS en los sectores que NO deberían estar ahí
-  for(const [vin, ubicCol] of Object.entries(colectadoEnSector)){
-    if(vinsProcesados.has(vin)) continue; // ya procesado
-    vinsProcesados.add(vin);
-
-    let estado, accion, ubicStock='';
-    if(stockFueraSector.has(vin)){
-      // Está en stock pero en otra ubicación → mal ubicado (entró por el lado B)
-      const s = stockFueraSector.get(vin);
-      ubicStock = s.boxatura;
-      estado='MAL_UBICADO'; accion=`Reparquear de ${ubicCol} → ${s.boxatura}`;
-    } else if(vsStock.has(vin)){
-      // Está en stock en uno de los sectores seleccionados (no debería llegar acá)
-      estado='OK'; accion='—';
-    } else if(vsProd.has(vin)){
-      estado='DESCONOCIDO'; accion='En productivo, no en stock — verificar';
-    } else {
-      estado='DESCONOCIDO'; accion='No esta en stock ni productivo — verificar';
-    }
-    res.push({vin,modelo:'',ubicStock,ubicCol,estado,accion,grupo:clasificarUbicacion(ubicCol).subgrupo});
-  }
-
-  parcialResultados = res;
-  parcialFiltroActual = 'TODOS';
-  document.getElementById('parcial-resultados').style.display='';
-
-  // Titulo
-  const nombres = [...sels].join(', ');
-  document.getElementById('parcial-titulo').textContent = `Sectores: ${nombres}`;
-
-  // Stats
-  const ok=res.filter(r=>r.estado==='OK').length;
-  const mal=res.filter(r=>r.estado==='MAL_UBICADO').length;
-  const noEnc=res.filter(r=>r.estado==='NO_ENCONTRADO').length;
-  const extra=res.filter(r=>r.estado==='EXTRA').length;
-  const desc=res.filter(r=>r.estado==='DESCONOCIDO').length;
-  document.getElementById('parcial-stat-grid').innerHTML=`
-    <div class="stat-card"><div class="stat-val" style="color:var(--ok)">${ok}</div><div class="stat-lbl">OK</div></div>
-    <div class="stat-card"><div class="stat-val" style="color:var(--warn)">${mal}</div><div class="stat-lbl">Mal Ubicado</div></div>
-    <div class="stat-card"><div class="stat-val" style="color:var(--ko)">${noEnc}</div><div class="stat-lbl">No Encontrado</div></div>
-    <div class="stat-card"><div class="stat-val" style="color:var(--info)">${extra}</div><div class="stat-lbl">Extra</div></div>
-    <div class="stat-card"><div class="stat-val" style="color:var(--purple)">${desc}</div><div class="stat-lbl">Desconocido</div></div>
-    <div class="stat-card"><div class="stat-val" style="color:var(--accent)">${res.length}</div><div class="stat-lbl">Total analizado</div></div>
-  `;
-
-  // Resetear filtro chips
-  document.querySelectorAll('#page-parcial .chip').forEach(c=>c.classList.remove('active'));
-  const todosChip = document.querySelector('#page-parcial .chip');
-  if(todosChip) todosChip.classList.add('active');
-
-  parcialRenderTabla();
-  toast(`Analizados ${res.length} registros en ${sels.size} sector${sels.size>1?'es':''}`, 'ok');
-}
-
-function parcialSetFiltro(f, btn){
-  parcialFiltroActual = f;
-  document.querySelectorAll('#page-parcial .chip').forEach(c=>c.classList.remove('active'));
-  if(btn) btn.classList.add('active');
-  parcialRenderTabla();
-}
-
-function parcialRenderTabla(){
-  let data = [...parcialResultados];
-  if(parcialFiltroActual!=='TODOS') data=data.filter(r=>r.estado===parcialFiltroActual);
-
-  const ebP = (e,accion) => {
-    const map = {
-      OK:`<span class="badge b-ok">OK</span>`,
-      MAL_UBICADO:`<span class="badge b-warn">MAL UBICADO</span>`,
-      NO_ENCONTRADO:`<span class="badge b-ko">NO ENCONTRADO</span>`,
-      EXTRA:`<span class="badge b-info">EXTRA</span>`,
-      DESCONOCIDO:`<span class="badge b-vir">DESCONOCIDO</span>`,
-    };
-    return map[e]||`<span class="badge b-muted">${e}</span>`;
-  };
-
-  const MAX=300;
-  document.getElementById('parcial-tbody').innerHTML = data.slice(0,MAX).map(r=>`
-    <tr>
-      <td class="mono" style="font-size:11px">${r.vin}</td>
-      <td style="font-size:11px;color:var(--muted2);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.modelo||'—'}</td>
-      <td class="mono" style="color:var(--accent)">${r.ubicStock||'—'}</td>
-      <td class="mono" style="color:${r.ubicCol?'var(--text)':'var(--muted)'}">${r.ubicCol||'—'}</td>
-      <td>${ebP(r.estado)}</td>
-      <td style="font-size:11px;color:var(--muted2);max-width:200px">${r.accion}</td>
-    </tr>`).join('');
-
-  const more = document.getElementById('parcial-more');
-  if(data.length>MAX){ more.style.display=''; more.textContent=`Mostrando ${MAX} de ${data.length}.`; }
-  else more.style.display='none';
-}
-
-function parcialExportar(){
-  if(!parcialResultados.length){ toast('Sin resultados para exportar','warn'); return; }
-  const sectores = [...parcialSectoresSeleccionados].join('_');
-  const fecha = new Date().toLocaleDateString('es-AR');
-  const rows = parcialResultados.map(r=>({
-    VIN: r.vin, MODELO: r.modelo||'',
-    UBICACION_STOCK: r.ubicStock||'',
-    UBICACION_COLECTADA: r.ubicCol||'',
-    ESTADO: r.estado,
-    ACCION_SUGERIDA: r.accion,
-    SECTOR: r.grupo||'',
-  }));
-  // Hoja de datos
-  const wsData = [
-    ['STELLANTIS ARGENTINA — INVENTARIO PARCIAL','','','','','',''],
-    [`Inventario: ${S.invNombre} | Sectores: ${[...parcialSectoresSeleccionados].join(', ')} | Fecha: ${fecha}`,'','','','','',''],
-    [''],
-    ['VIN','MODELO','UBICACION STOCK','UBICACION COLECTADA','ESTADO','ACCION SUGERIDA','SECTOR'],
-    ...rows.map(r=>Object.values(r))
-  ];
-  const ws = XLSX.utils.aoa_to_sheet(wsData);
-  ws['!cols']=[{wch:20},{wch:20},{wch:16},{wch:18},{wch:16},{wch:35},{wch:12}];
-  ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:6}},{s:{r:1,c:0},e:{r:1,c:6}}];
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'Parcial');
-  XLSX.writeFile(wb,`InvParcial_${sectores}_${fecha.replace(/\//g,'-')}.xlsx`);
-  toast('Exportado OK','ok');
-}
-
-
-// ═══════════════════════════════════════════════════════════
-// NOTIFICACIONES PUSH
-// ═══════════════════════════════════════════════════════════
-let notifPermiso = false;
-
-async function initNotificaciones(){
-  if(!('Notification' in window)) return;
-  const btn = document.getElementById('notif-btn');
-  if(btn) btn.style.display='';
-  if(Notification.permission==='granted'){
-    notifPermiso=true;
-    if(btn){ btn.title='Notificaciones activas'; btn.style.color='var(--ok)'; }
-  }
-}
-
-async function solicitarNotificaciones(){
-  if(!('Notification' in window)){ toast('Tu navegador no soporta notificaciones','warn'); return; }
-  const perm = await Notification.requestPermission();
-  notifPermiso = perm==='granted';
-  const btn = document.getElementById('notif-btn');
-  if(notifPermiso){
-    btn.style.color='var(--ok)'; btn.title='Notificaciones activas';
-    toast('Notificaciones activadas','ok');
-    // Test
-    new Notification('STELLANTIS', {body:'Notificaciones activadas correctamente', icon:'', tag:'test'});
-  } else {
-    toast('Permiso denegado — activalas desde la config del navegador','warn');
-  }
-}
-
-function enviarNotificacion(titulo, cuerpo, tag='stellantis'){
-  if(!notifPermiso) return;
-  if(document.hasFocus()) return; // no molestar si la ventana esta activa
-  try{
-    new Notification('STELLANTIS — '+titulo, {body:cuerpo, tag, requireInteraction:false});
-  }catch(e){}
-}
-
-// ═══════════════════════════════════════════════════════════
-// REPORTE DE OPERADORES
-// ═══════════════════════════════════════════════════════════
-function repSetHoy(){
-  const hoy = new Date().toISOString().slice(0,10);
-  document.getElementById('rep-fecha-desde').value=hoy;
-  document.getElementById('rep-fecha-hasta').value=hoy;
-  renderReporte();
-}
-function repSetTodo(){
-  document.getElementById('rep-fecha-desde').value='';
-  document.getElementById('rep-fecha-hasta').value='';
-  renderReporte();
-}
-
-function renderReporte(){
-  const desde = document.getElementById('rep-fecha-desde')?.value||'';
-  const hasta = document.getElementById('rep-fecha-hasta')?.value||'';
-
-  // Filtrar colectas por fecha
-  let cols = [...S.colectas];
-  if(desde) cols=cols.filter(c=>!c.creado_en||c.creado_en.slice(0,10)>=desde);
-  if(hasta) cols=cols.filter(c=>!c.creado_en||c.creado_en.slice(0,10)<=hasta);
-
-  // Agrupar por operario → archivos (lotes)
-  const ops = {};
-  for(const c of cols){
-    const op = c.operario||'Sin identificar';
-    if(!ops[op]) ops[op]={vins:new Set(),archivos:{},errores:0,ok:0};
-    ops[op].vins.add(c.vin);
-    const arch = c.archivo||c.sector||'Desconocido';
-    if(!ops[op].archivos[arch]) ops[op].archivos[arch]={vins:0,fecha:c.creado_en||''};
-    ops[op].archivos[arch].vins++;
-  }
-
-  // Cruzar con resultados para calcular tasa de éxito
-  for(const [op, data] of Object.entries(ops)){
-    for(const vin of data.vins){
-      const r = S.resultados.find(x=>x.vin===vin);
-      if(r){
-        if(r.estado==='OK') data.ok++;
-        else if(r.estado==='UBICACION_INCORRECTA') data.errores++;
-      }
-    }
-  }
-
-  // También incluir validaciones fija por operario
-  const valOps = {};
-  for(const vf of S.validFijas){
-    const op = vf.operario||'Sin identificar';
-    if(!valOps[op]) valOps[op]={coincide:0,ko:0,vacios:0};
-    if(vf.resultado==='COINCIDE') valOps[op].coincide++;
-    else if(vf.resultado==='OTRO_VIN'||vf.resultado==='VACIO_INESPERADO') valOps[op].ko++;
-    else if(vf.resultado==='VACIO_OK') valOps[op].vacios++;
-  }
-
-  const cardsEl = document.getElementById('rep-cards');
-  if(!cardsEl) return;
-
-  if(!Object.keys(ops).length && !Object.keys(valOps).length){
-    cardsEl.innerHTML='<div style="font-size:13px;color:var(--muted);padding:20px">Sin actividad en el periodo seleccionado</div>';
-    document.getElementById('rep-tbody').innerHTML='';
-    return;
-  }
-
-  // Unir todos los operarios
-  const todosOps = new Set([...Object.keys(ops),...Object.keys(valOps)]);
-  const colores=['var(--accent)','var(--ok)','var(--info)','var(--purple)','var(--warn)'];
-
-  cardsEl.innerHTML = [...todosOps].map((op,idx)=>{
-    const d = ops[op]||{vins:new Set(),archivos:{},ok:0,errores:0};
-    const v = valOps[op]||{coincide:0,ko:0,vacios:0};
-    const totalVins = d.vins.size;
-    const totalLotes = Object.keys(d.archivos).length;
-    const tasaOk = totalVins>0 ? Math.round((d.ok/totalVins)*100) : 0;
-    const color = colores[idx%colores.length];
-    return `<div class="card" style="border-top:3px solid ${color}">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
-        <div>
-          <div style="font-size:16px;font-weight:800;color:${color}">${op}</div>
-          <div style="font-size:11px;color:var(--muted2);margin-top:2px">${totalLotes} lote${totalLotes!==1?'s':''} colectado${totalLotes!==1?'s':''}</div>
-        </div>
-        <div style="text-align:right">
-          <div style="font-size:28px;font-weight:800;color:${color};font-family:var(--mono)">${totalVins}</div>
-          <div style="font-size:9px;color:var(--muted);letter-spacing:1px">VINS TOTALES</div>
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;text-align:center">
-        <div style="background:rgba(34,197,94,.08);border-radius:4px;padding:8px">
-          <div style="font-size:18px;font-weight:800;color:var(--ok)">${d.ok}</div>
-          <div style="font-size:9px;color:var(--muted)">OK CRUCE</div>
-        </div>
-        <div style="background:rgba(239,68,68,.08);border-radius:4px;padding:8px">
-          <div style="font-size:18px;font-weight:800;color:var(--ko)">${d.errores}</div>
-          <div style="font-size:9px;color:var(--muted)">KO CRUCE</div>
-        </div>
-        <div style="background:rgba(200,164,86,.08);border-radius:4px;padding:8px">
-          <div style="font-size:18px;font-weight:800;color:var(--accent)">${tasaOk}%</div>
-          <div style="font-size:9px;color:var(--muted)">TASA OK</div>
-        </div>
-      </div>
-      ${v.coincide+v.ko>0?`
-      <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Playa Fija</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;text-align:center">
-        <div style="font-size:12px;color:var(--ok)">${v.coincide} <span style="font-size:9px;color:var(--muted)">coincide</span></div>
-        <div style="font-size:12px;color:var(--ko)">${v.ko} <span style="font-size:9px;color:var(--muted)">KO</span></div>
-        <div style="font-size:12px;color:var(--info)">${v.vacios} <span style="font-size:9px;color:var(--muted)">vacíos</span></div>
-      </div>`:''}
-      <div style="height:3px;background:var(--border);border-radius:2px;margin-top:10px;overflow:hidden">
-        <div style="height:100%;width:${tasaOk}%;background:${color};border-radius:2px;transition:width .5s"></div>
-      </div>
-    </div>`;
-  }).join('');
-
-  // Tabla detallada de lotes
-  const filas = [];
-  for(const [op, data] of Object.entries(ops)){
-    for(const [arch, ad] of Object.entries(data.archivos)){
-      filas.push({op, arch, vins:ad.vins, fecha:ad.fecha, tipo:'LOTE'});
-    }
-  }
-  filas.sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
-
-  document.getElementById('rep-tbody').innerHTML = filas.slice(0,100).map(f=>`
-    <tr>
-      <td style="font-size:12px;font-weight:700;color:var(--accent)">${f.op}</td>
-      <td style="font-size:12px;font-family:var(--mono)">${f.arch}</td>
-      <td style="font-size:12px;font-weight:700">${f.vins}</td>
-      <td><span class="badge b-info">${f.tipo}</span></td>
-      <td style="font-size:11px;color:var(--muted2)">${f.fecha?new Date(f.fecha).toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'-'}</td>
-      <td style="font-size:11px;color:var(--muted2)">—</td>
-    </tr>`).join('');
+  XLSX.writeFile(wb,nombreArchivo+'_'+fecha.replace(/\/g,'-')+'.xlsx');
+  toast('Excel exportado — '+wb.SheetNames.length+' hojas','ok');
 }
 
 function exportarReporte(){
@@ -3508,6 +1782,160 @@ window.colLoteAgregarVin = function(vin){
   }
   _origColLoteAgregarVin(vin);
 };
+
+
+// ═══════════════════════════════════════════════════════════
+// VINs PENDIENTES DE COMPLETAR
+// ═══════════════════════════════════════════════════════════
+function getPendientes(){
+  // Buscar en observaciones las que tienen VIN corto (parcial) o son VERIFICAR FISICO
+  return S.observaciones.filter(o=>{
+    const vin=o.vin||'';
+    return o.tipo==='VERIFICAR FISICO' || vin.length<17;
+  });
+}
+
+function renderPendientes(){
+  const pends=getPendientes();
+  document.getElementById('pend-count').textContent=pends.length;
+  const badge=document.getElementById('badge-pendientes');
+  if(pends.length>0){badge.style.display='';badge.textContent=pends.length;}
+  else badge.style.display='none';
+
+  document.getElementById('pend-tbody').innerHTML=pends.length===0
+    ?'<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--muted)">Sin VINs pendientes</td></tr>'
+    :pends.map((o,i)=>`<tr>
+      <td class="mono" style="font-size:12px;font-weight:700;color:var(--warn)">${o.vin||'—'}</td>
+      <td class="mono" style="font-size:11px">${o.ubicacion||extractUbic(o.texto)||'—'}</td>
+      <td style="font-size:11px;color:var(--muted2)">${o.operario||'—'}</td>
+      <td style="font-size:11px;color:var(--muted2)">${o.creado_en?new Date(o.creado_en).toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—'}</td>
+      <td><span class="badge b-warn">${o.tipo}</span></td>
+      <td><input class="inp inp-mono" style="font-size:12px;padding:5px 8px;width:180px" placeholder="VIN completo (17 chars)..." maxlength="17" id="pend-vin-${i}" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" oninput="pendBuscarVin(this.value,${i})"></td>
+      <td><button class="btn btn-ok btn-xs" onclick="pendCompletarVin(${i})">Guardar</button></td>
+    </tr>`).join('');
+}
+
+function extractUbic(texto){
+  if(!texto) return '';
+  const m=texto.match(/[ABDGL]\d{3}\d{3}|[A-Z0-9]{2,8}/);
+  return m?m[0]:'';
+}
+
+function pendBuscarVin(val,idx){
+  if(val.length<5) return;
+  const q=val.toUpperCase();
+  const match=S.stock.find(s=>s.vin.toUpperCase().endsWith(q)||s.vin.toUpperCase().includes(q));
+  const inp=document.getElementById('pend-vin-'+idx);
+  if(match&&match.vin.length===17){
+    inp.value=match.vin;
+    inp.style.borderColor='var(--ok)';
+  }
+}
+
+async function pendCompletarVin(idx){
+  const pends=getPendientes();
+  const obs=pends[idx];
+  const nuevoVin=document.getElementById('pend-vin-'+idx)?.value.trim().toUpperCase();
+  if(!nuevoVin||nuevoVin.length<6){toast('Ingresa el VIN completo','warn');return;}
+
+  // Actualizar la observacion con el VIN completo
+  const obsIdx=S.observaciones.findIndex(o=>o===obs);
+  if(obsIdx>=0){
+    S.observaciones[obsIdx].vin=nuevoVin;
+    S.observaciones[obsIdx].texto=(obs.texto||'')+' [VIN completado por admin: '+nuevoVin+']';
+    try{localStorage.setItem('st_obs_'+S.invId,JSON.stringify(S.observaciones));}catch(e){}
+    if(S.isOnline&&obs.id){
+      await sb.from('observaciones').update({vin:nuevoVin,texto:S.observaciones[obsIdx].texto}).eq('id',obs.id);
+    }
+    toast('VIN completado: '+nuevoVin,'ok');
+    renderPendientes();
+  }
+}
+
+function exportarPendientes(){
+  const pends=getPendientes();
+  if(!pends.length){toast('Sin pendientes','warn');return;}
+  const rows=pends.map(o=>({
+    VIN_PARCIAL:o.vin||'',
+    TIPO:o.tipo,
+    TEXTO:o.texto||'',
+    OPERARIO:o.operario||'',
+    FECHA:o.creado_en?new Date(o.creado_en).toLocaleString('es-AR'):'',
+    VIN_COMPLETO_A_COMPLETAR:'',
+  }));
+  const ws=XLSX.utils.json_to_sheet(rows);
+  ws['!cols']=[{wch:20},{wch:18},{wch:40},{wch:16},{wch:18},{wch:22}];
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Pendientes');
+  XLSX.writeFile(wb,'VINs_Pendientes_'+S.invNombre.replace(/\s+/g,'_')+'.xlsx');
+  toast('Exportado OK','ok');
+}
+
+
+// ═══════════════════════════════════════════════════════════
+// NORMALIZAR UBICACION
+// ═══════════════════════════════════════════════════════════
+function normalizarUbicacion(raw){
+  if(!raw) return '';
+  var s = raw.trim().toUpperCase().replace(/\s+/g,' ');
+  // "L 1 23" o "A 3 5"
+  var m1 = s.match(/^([ABDGL])\s+(\d+)\s+(\d+)$/);
+  if(m1) return m1[1] + m1[2].padStart(3,'0') + m1[3].padStart(3,'0');
+  // "L0123" o "L123"
+  var m2 = s.match(/^([ABDGL])(\d{1,3})(\d{3})$/);
+  if(m2) return m2[1] + m2[2].padStart(3,'0') + m2[3];
+  // Ya correcto "L001023"
+  var m3 = s.match(/^([ABDGL])(\d{3})(\d{3})$/);
+  if(m3) return s;
+  // Lote libre
+  return s;
+}
+
+function esUbicacionFisicaValida(ubic){
+  if(!ubic) return false;
+  return /^[ABDGL]\d{3}\d{3}$/.test(ubic);
+}
+
+function prodPreviewLote(val){
+  var inp = document.getElementById('prod-lote-inp');
+  if(inp) inp.value = val.toUpperCase();
+  var norm = normalizarUbicacion(val);
+  var el = document.getElementById('prod-lote-preview');
+  if(!el) return;
+  if(!val.trim()){ el.textContent=''; return; }
+  if(esUbicacionFisicaValida(norm)){
+    el.innerHTML = 'Ubicacion fisica: <span style="color:var(--accent);font-family:var(--mono);font-weight:700;font-size:16px">'+norm+'</span>';
+  } else {
+    el.innerHTML = 'Lote: <span style="color:var(--warn);font-family:var(--mono);font-weight:700">'+norm+'</span>';
+  }
+}
+
+function pqPreviewLote(val){
+  var inp = document.getElementById('pq-lote-inp');
+  if(inp) inp.value = val.toUpperCase();
+  var norm = normalizarUbicacion(val);
+  var el = document.getElementById('pq-lote-preview');
+  if(!el) return;
+  if(!val.trim()){ el.textContent=''; return; }
+  if(esUbicacionFisicaValida(norm)){
+    el.innerHTML = 'Ubicacion fisica: <span style="color:var(--accent);font-family:var(--mono);font-weight:700;font-size:16px">'+norm+'</span>';
+  } else {
+    el.innerHTML = 'Lote: <span style="color:var(--warn);font-family:var(--mono);font-weight:700">'+norm+'</span>';
+  }
+}
+
+function colPqPreviewLote(val){
+  var inp = document.getElementById('col-pq-lote-inp');
+  if(inp) inp.value = val.toUpperCase();
+  var norm = normalizarUbicacion(val);
+  var el = document.getElementById('col-pq-lote-prev');
+  if(!el) return;
+  if(!val.trim()){ el.textContent=''; return; }
+  if(esUbicacionFisicaValida(norm)){
+    el.innerHTML = 'Fisica: <span style="color:var(--accent);font-family:var(--mono);font-weight:700">'+norm+'</span>';
+  } else {
+    el.innerHTML = 'Lote: <span style="color:var(--warn);font-family:var(--mono);font-weight:700">'+norm+'</span>';
+  }
+}
 
 // ═══════════════════════════════════════════════════════════
 // HELPER: detectar dispositivo táctil (más confiable que ROL)
@@ -3768,6 +2196,55 @@ function vibrar(tipo){
   if(tipo==='ok')   navigator.vibrate(60);
   else if(tipo==='ko')   navigator.vibrate([80,40,80]);
   else if(tipo==='scan') navigator.vibrate(30);
+}
+
+function generarPDF(){
+  const{jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const W=210,M=16,INNER=W-M*2;let y=0;
+  const fecha=new Date().toLocaleString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  const ck=(h=8)=>{if(y+h>284){doc.addPage();hdr();y=22;}};
+  const sf=(sz,b)=>{doc.setFont('helvetica',b?'bold':'normal');doc.setFontSize(sz);};
+  const sc=(r,g,b)=>doc.setTextColor(r,g,b);
+  const fr=(x,yy,w,h,r,g,b)=>{doc.setFillColor(r,g,b);doc.rect(x,yy,w,h,'F');};
+  const ln=(x1,y1,x2,y2,r,g,b,lw=0.3)=>{doc.setDrawColor(r,g,b);doc.setLineWidth(lw);doc.line(x1,y1,x2,y2);};
+  function hdr(){fr(0,0,W,18,8,8,16);fr(0,0,3,18,200,164,86);sf(10,true);sc(200,164,86);doc.text('STELLANTIS',M,12);sf(7,false);sc(160,160,180);doc.text('INVENTARIO DE PLAYA  |  '+S.invNombre,M+36,12);}
+  fr(0,0,W,60,8,8,16);fr(0,0,5,60,200,164,86);
+  sf(22,true);sc(200,164,86);doc.text('STELLANTIS',M+8,24);
+  sf(10,false);sc(180,180,200);doc.text('ARGENTINA \u2014 SISTEMA DE INVENTARIO DE PLAYA',M+8,34);
+  ln(M+8,38,W-M,38,200,164,86,0.8);
+  sf(14,true);sc(240,240,250);doc.text('REPORTE EJECUTIVO DE INVENTARIO',M+8,48);
+  sf(8,false);sc(140,140,160);doc.text(S.invNombre+'   |   '+S.invFecha+'   |   Generado: '+fecha,M+8,56);
+  y=72;
+  const r=S.resultados,sT=S.stock.length,col=r.filter(x=>x.ubicacionPlaya).length;
+  const okN=r.filter(x=>x.estado==='OK').length,rpN=r.filter(x=>x.estado==='UBICACION_INCORRECTA').length;
+  const sbN=r.filter(x=>x.estado==='NO_EN_STOCK'||x.estado==='EN_PRODUCTIVO').length,ftN=r.filter(x=>x.estado==='NO_COLECTADO').length;
+  const pct=sT>0?Math.round((col/sT)*100):0;
+  sf(8,true);sc(100,100,120);doc.text('RESUMEN EJECUTIVO',M,y);y+=5;ln(M,y,W-M,y,200,164,86,0.5);y+=5;
+  const kpis=[['STOCK TOTAL',sT,[99,102,241]],['COLECTADOS',col,[200,164,86]],['% AVANCE',pct+'%',[34,197,94]],['OK EN LUGAR',okN,[34,197,94]],['REPARQUEADAS',rpN,[245,158,11]],['SOBRANTES',sbN,[239,120,50]]];
+  const kw=INNER/3,kh=18;
+  kpis.forEach(([lbl,val,c],i)=>{const kx=M+(i%3)*kw,ky=y+Math.floor(i/3)*(kh+3);fr(kx,ky,kw-2,kh,...c);sf(16,true);sc(255,255,255);doc.text(String(val),kx+kw/2-1,ky+11,{align:'center'});sf(6,false);sc(220,220,240);doc.text(lbl,kx+kw/2-1,ky+16,{align:'center'});});
+  y+=kh*2+10;
+  fr(M,y,INNER,14,150,20,20);sf(9,true);sc(255,200,200);doc.text('FALTANTES (NO COLECTADOS):',M+4,y+9);sf(14,true);sc(255,255,255);doc.text(String(ftN),M+INNER-20,y+10);y+=17;
+  fr(M,y,INNER,5,30,30,50);fr(M,y,INNER*(pct/100),5,34,197,94);sf(7,false);sc(120,120,140);doc.text(pct+'% del stock colectado ('+col+' de '+sT+')',M,y+9);y+=16;
+  ck(20);sf(8,true);sc(100,100,120);doc.text('AVANCE POR SECTOR / GRUPO',M,y);y+=5;ln(M,y,W-M,y,200,164,86,0.5);y+=4;
+  const gps={};
+  for(const s of S.stock){const g=clasificarUbicacion(s.boxatura).grupo;if(!gps[g])gps[g]={st:0,ok:0,rp:0,sb:0,ft:0};gps[g].st++;}
+  for(const rr of r){const g=clasificarUbicacion(rr.ubicacionStock||rr.ubicacionPlaya).grupo;if(!gps[g])gps[g]={st:0,ok:0,rp:0,sb:0,ft:0};if(rr.estado==='OK')gps[g].ok++;else if(rr.estado==='UBICACION_INCORRECTA')gps[g].rp++;else if(rr.estado==='NO_COLECTADO')gps[g].ft++;else if(rr.estado==='NO_EN_STOCK'||rr.estado==='EN_PRODUCTIVO')gps[g].sb++;}
+  const cs=[['GRUPO/SECTOR',52],['STOCK',16],['OK',16],['REPARQ.',18],['SOBRANTES',20],['FALTANTES',20],['AVANCE',20]];
+  let cx=M;fr(M,y,INNER,7,30,30,50);sf(6,true);sc(200,200,220);cs.forEach(([l,cw])=>{doc.text(l,cx+1,y+5);cx+=cw;});y+=8;
+  Object.entries(gps).sort((a,b)=>b[1].st-a[1].st).forEach(([g,gd],idx)=>{ck(6);if(idx%2===0)fr(M,y-3,INNER,6,245,245,252);const pc=gd.st>0?Math.round((gd.ok/gd.st)*100):0;const vs=[g.slice(0,18),gd.st,gd.ok,gd.rp,gd.sb,gd.ft,pc+'%'];cx=M;sf(6.5,false);cs.forEach(([,cw],i)=>{const cl=i===2?[34,130,80]:i===3?[180,100,20]:i===4?[180,80,20]:i===5?[180,30,30]:[30,30,50];sc(...cl);doc.text(String(vs[i]),cx+1,y+1);cx+=cw;});y+=6;});y+=6;
+  const rp=r.filter(x=>x.estado==='UBICACION_INCORRECTA');
+  if(rp.length>0){ck(14);fr(M,y,INNER,8,180,100,20);sf(8,true);sc(255,240,200);doc.text('UNIDADES REPARQUEADAS  ('+rp.length+')',M+2,y+5.5);y+=10;sf(6,true);sc(80,60,20);fr(M,y,INNER,5,255,230,180);['VIN','MODELO','STOCK','EN PLAYA','ACCION'].forEach((l,i)=>doc.text(l,[M+1,M+38,M+78,M+100,M+130][i],y+3.5));y+=6;rp.forEach((it,i)=>{ck(5);if(i%2===0)fr(M,y-2,INNER,5,255,248,225);sf(6,false);sc(40,30,10);doc.text((it.vin||'').slice(0,18),M+1,y+2);doc.text((it.modelo||'').slice(0,14),M+38,y+2);doc.text(it.ubicacionStock||'?',M+78,y+2);doc.text(it.ubicacionPlaya||'?',M+100,y+2);doc.text('Reparquear -> '+(it.ubicacionStock||'?'),M+130,y+2);y+=5;});y+=5;}
+  const sb=r.filter(x=>x.estado==='NO_EN_STOCK'||x.estado==='EN_PRODUCTIVO');
+  if(sb.length>0){ck(14);fr(M,y,INNER,8,180,80,20);sf(8,true);sc(255,230,210);doc.text('UNIDADES SOBRANTES  ('+sb.length+')',M+2,y+5.5);y+=10;sf(6,true);sc(80,40,10);fr(M,y,INNER,5,255,210,180);['VIN','UBICACION PLAYA','ESTADO','ACCION'].forEach((l,i)=>doc.text(l,[M+1,M+38,M+90,M+120][i],y+3.5));y+=6;sb.forEach((it,i)=>{ck(5);if(i%2===0)fr(M,y-2,INNER,5,255,245,235);sf(6,false);sc(60,30,10);doc.text((it.vin||'').slice(0,18),M+1,y+2);doc.text(it.ubicacionPlaya||'?',M+38,y+2);doc.text(it.estado==='EN_PRODUCTIVO'?'EN PRODUCTIVO':'NO EN STOCK',M+90,y+2);doc.text(it.estado==='EN_PRODUCTIVO'?'Aguardar planta':'Verificar urgente',M+120,y+2);y+=5;});y+=5;}
+  const ft=r.filter(x=>x.estado==='NO_COLECTADO');
+  if(ft.length>0){ck(14);fr(M,y,INNER,8,150,20,20);sf(8,true);sc(255,200,200);doc.text('UNIDADES FALTANTES  ('+ft.length+')',M+2,y+5.5);y+=10;sf(6,true);sc(80,10,10);fr(M,y,INNER,5,255,180,180);['VIN','MODELO','UBICACION STOCK','GRUPO','ACCION'].forEach((l,i)=>doc.text(l,[M+1,M+38,M+78,M+120,M+148][i],y+3.5));y+=6;ft.forEach((it,i)=>{ck(5);if(i%2===0)fr(M,y-2,INNER,5,255,240,240);sf(6,false);sc(60,10,10);doc.text((it.vin||'').slice(0,18),M+1,y+2);doc.text((it.modelo||'').slice(0,14),M+38,y+2);doc.text(it.ubicacionStock||'?',M+78,y+2);doc.text(clasificarUbicacion(it.ubicacionStock).grupo.slice(0,14),M+120,y+2);doc.text('Busqueda / VIR',M+148,y+2);y+=5;});y+=5;}
+  const pds=getPendientes();
+  if(pds.length>0){ck(14);fr(M,y,INNER,8,80,30,150);sf(8,true);sc(220,200,255);doc.text('VINs PENDIENTES  ('+pds.length+')',M+2,y+5.5);y+=10;sf(6,true);sc(50,20,80);fr(M,y,INNER,5,220,200,255);['VIN/PARCIAL','UBICACION','OPERARIO','NOTA'].forEach((l,i)=>doc.text(l,[M+1,M+50,M+90,M+130][i],y+3.5));y+=6;pds.forEach((it,i)=>{ck(5);if(i%2===0)fr(M,y-2,INNER,5,240,235,255);sf(6,false);sc(30,10,60);doc.text((it.vin||'').slice(0,22),M+1,y+2);doc.text((it.ubicacion||'').slice(0,16),M+50,y+2);doc.text((it.operario||'').slice(0,16),M+90,y+2);doc.text((it.texto||'').slice(0,30),M+130,y+2);y+=5;});y+=5;}
+  if(S.observaciones.length>0){ck(14);fr(M,y,INNER,8,30,30,60);sf(8,true);sc(200,200,240);doc.text('OBSERVACIONES ('+S.observaciones.length+')',M+2,y+5.5);y+=10;S.observaciones.slice(0,50).forEach(o=>{ck(6);sf(6,false);sc(30,30,60);doc.text('['+o.tipo+'] '+(o.vin||'').slice(-7)+' \u2014 '+(o.texto||'').slice(0,65)+'  ('+(o.operario||'')+')',M+1,y+2);y+=6;});}
+  const tot=doc.internal.getNumberOfPages();for(let i=1;i<=tot;i++){doc.setPage(i);fr(0,286,W,11,8,8,16);fr(0,286,3,11,200,164,86);sf(6,false);sc(140,140,160);doc.text('Stellantis Argentina  |  Inventario de Playa  |  '+S.invNombre,M+4,292);doc.text('Pag '+i+' / '+tot+'  |  '+fecha,W-M,292,{align:'right'});}
+  doc.save('Reporte_Inventario_'+S.invNombre.replace(/\s+/g,'_')+'_'+S.invFecha.replace(/\//g,'-')+'.pdf');
+  toast('PDF generado','ok');
 }
 
 window.addEventListener('load',init);
