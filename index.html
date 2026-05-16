@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Stellantis — Inventario de Playa</title>
+<title>Stellantis  -  Inventario de Playa</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -203,7 +203,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
 <!-- MODAL FOTO CHAPELONA -->
 <div id="modal-foto" class="modal-overlay hidden">
   <div class="modal" style="max-width:480px">
-    <div class="modal-title" style="color:var(--warn)">&#9888; VIN Desconocido — Foto requerida</div>
+    <div class="modal-title" style="color:var(--warn)">&#9888; VIN Desconocido  -  Foto requerida</div>
     <div style="font-size:13px;color:var(--muted2);margin-bottom:14px;line-height:1.6">Este VIN no figura en el stock ni en produccion. Para registrarlo es obligatorio adjuntar una foto de la chapelona.</div>
     <div id="foto-vin-info" style="font-family:var(--mono);font-size:14px;font-weight:700;color:var(--accent);margin-bottom:14px;padding:8px 12px;background:rgba(200,164,86,.08);border:1px solid rgba(200,164,86,.2);border-radius:4px"></div>
     <div id="foto-preview-wrap" style="margin-bottom:12px">
@@ -265,7 +265,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
       <span class="rol-badge rol-colector">COLECTOR</span>
-          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v3.3</span>
+          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v3.5</span>
       <div style="font-size:11px;color:var(--muted2)" id="col-operario-txt" onclick="openModal('modal-operario')" style="cursor:pointer">Toca para identificarte</div>
     </div>
   </div>
@@ -290,8 +290,8 @@ tr:hover td{background:rgba(255,255,255,.015)}
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div>
             <div style="font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase">INVENTARIO ACTIVO</div>
-            <div style="font-size:17px;font-weight:800;color:var(--accent);margin-top:2px" id="col-inv-activo-nombre">—</div>
-            <div style="font-size:11px;color:var(--muted2);margin-top:1px" id="col-inv-activo-fecha">—</div>
+            <div style="font-size:17px;font-weight:800;color:var(--accent);margin-top:2px" id="col-inv-activo-nombre"> - </div>
+            <div style="font-size:11px;color:var(--muted2);margin-top:1px" id="col-inv-activo-fecha"> - </div>
           </div>
           <button class="touch-btn" onclick="colCambiarInv()" style="padding:8px 12px;font-size:11px;flex-shrink:0">Cambiar</button>
         </div>
@@ -385,7 +385,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
         <input id="col-sc-inp" class="inp touch-inp inp-mono" placeholder="Escanear VIN..." oninput="colScInput(this.value)" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" inputmode="none" style="margin-top:10px" onclick="this.removeAttribute('inputmode')" title="Toca para escribir manualmente">
         <div id="col-sc-result" style="display:none" class="touch-result"></div>
       </div>
-      <!-- Botón Esta OK — aparece solo cuando hay VIN esperado -->
+      <!-- Botón Esta OK  -  aparece solo cuando hay VIN esperado -->
       <div id="col-esta-ok-wrap" style="display:none;margin-top:10px">
         <button class="touch-btn ok" onclick="colScEstaOK()" style="width:100%;padding:18px;font-size:20px;font-weight:800;letter-spacing:2px;border-radius:8px">
           &#10003; ESTA OK
@@ -462,7 +462,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     <div class="tb-right">
       <div class="tb-op" id="tb-op" onclick="openModal('modal-operario')">Sin identificar</div>
       <span class="rol-badge rol-admin" id="tb-rol-badge" style="display:none">ADMIN</span>
-      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v3.3</span>
+      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v3.5</span>
       <button class="theme-toggle" onclick="toggleTheme()" title="Modo claro/oscuro" id="theme-btn">&#9788;</button>
       <button class="theme-toggle" onclick="solicitarNotificaciones()" id="notif-btn" title="Activar notificaciones push" style="display:none">&#9993;</button>
       <button class="btn btn-secondary btn-sm" id="btn-qr" onclick="openQRModal()" style="display:none" title="QR de acceso para colectores">QR</button>
@@ -573,7 +573,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
         <!-- RESUMEN DE CAMPO -->
         <div class="card" style="margin-top:4px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-            <div class="card-title" style="margin-bottom:0">Colectas del dia — por lote / colector</div>
+            <div class="card-title" style="margin-bottom:0">Colectas del dia  -  por lote / colector</div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
               <input id="campo-fecha" type="date" class="inp" style="max-width:160px;font-size:12px;padding:5px 8px" onchange="renderCampo()">
               <select id="campo-operario" class="sel" style="max-width:160px;font-size:12px;padding:5px 8px" onchange="renderCampo()">
@@ -777,7 +777,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
       <!-- VINs PENDIENTES -->
       <div class="page" id="page-pendientes">
         <div class="page-title">VINs Pendientes de Completar</div>
-        <div class="page-sub">Chasis registrados en campo sin VIN completo — el administrador debe completarlos</div>
+        <div class="page-sub">Chasis registrados en campo sin VIN completo  -  el administrador debe completarlos</div>
         <div class="card" style="margin-bottom:14px">
           <div style="font-size:12px;color:var(--muted2);line-height:1.7">
             Estas unidades fueron registradas por los colectores cuando no podian leer la chapelona o el VIN no estaba en el sistema.
@@ -1142,6 +1142,18 @@ async function init(){
   if(S.isOnline) setupRealtime();
   updateOfflineUI(); colUpdateOfflineUI();
   if(S.isOnline&&S.offlineQueue.length>0) syncOQ();
+
+  // Interceptar AQUI - despues de que todas las funciones esten definidas
+  const _origLote = loteAgregarVin;
+  window.loteAgregarVin = function(vin){
+    if(necesitaFoto(vin)){ abrirModalFoto(vin,'lote'); return; }
+    _origLote(vin);
+  };
+  const _origColLote = colLoteAgregarVin;
+  window.colLoteAgregarVin = function(vin){
+    if(necesitaFoto(vin)){ abrirModalFoto(vin,'col-lote'); return; }
+    _origColLote(vin);
+  };
 }
 function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.getElementById('nav-'+id).classList.add('active');if(id==='resultados')renderResultados();if(id==='observaciones')renderObs();if(id==='produccion'){cargarProduccion().then(()=>prodRenderTabla());}if(id==='parqueo'){pqFiltrar('');pqUpdateStats();}if(id==='dashboard')iniciarCampo();if(id==='parcial'){parcialInit();}if(id==='reporte'){repSetHoy();renderReporte();}if(id==='buscador')setTimeout(()=>document.getElementById('buscar-inp').focus(),100);if(id==='lote')loteRenderCheck();}
 function openModal(id){document.getElementById(id).classList.remove('hidden');}
@@ -1162,7 +1174,7 @@ async function crearInventario(){
   const{data,error}=await sb.from('inventarios').insert({nombre,fecha}).select().single();
   if(error){
     const msg=error.message?.includes('fetch')||error.message?.includes('network')||error.message?.includes('Failed')
-      ?'Sin conexion a Supabase. Verifica tu red — si estas en la red corporativa, usa el hotspot del celular.'
+      ?'Sin conexion a Supabase. Verifica tu red  -  si estas en la red corporativa, usa el hotspot del celular.'
       :'Error: '+error.message;
     toast(msg,'ko');return;
   }
@@ -1294,7 +1306,7 @@ function calcularResultados(){
   }
 
   const vsStock = new Set(S.stock.map(s=>s.vin));
-  // VINs en productivo (cache local — se carga async aparte)
+  // VINs en productivo (cache local  -  se carga async aparte)
   const vsProd = new Set((window._vinsProd||[]).map(v=>v));
 
   // Unidades en stock
@@ -1421,7 +1433,7 @@ function scRender(){
   document.getElementById('sc-ubicacion').textContent=ubic;document.getElementById('sc-tipo-txt').textContent=`${SECTORES[S.scSector]?.tipo} - Sector ${S.scSector} - Calle ${S.scCalle}`;
   const si=S.stock.find(s=>s.boxatura===ubic);const expEl=document.getElementById('sc-vin-exp');
   if(si){expEl.textContent='...'+si.vin.slice(-7);expEl.style.color='var(--text)';}else{expEl.textContent='VACIO';expEl.style.color='var(--muted)';}
-  // Mostrar/ocultar botón "Esta OK" — solo si hay VIN esperado
+  // Mostrar/ocultar botón "Esta OK"  -  solo si hay VIN esperado
   const btnOk=document.getElementById('btn-esta-ok');if(btnOk)btnOk.style.display=si?'':'none';
   const pv=S.validFijas.find(v=>v.ubicacion===ubic);if(pv)scMostrarResultado(pv.resultado);else scLimpiarResultado();
   const t=S.scBoxes.length,pct=Math.round((S.scIdx/t)*100);
@@ -1492,9 +1504,9 @@ function exportarExcelProfesional(datos, hojaNombre, nombreArchivo){
   const faltN=r.filter(x=>x.estado==='NO_COLECTADO').length;
   const pctCol=stockTotal>0?Math.round((colectados/stockTotal)*100):0;
 
-  // ── HOJA 1: RESUMEN EJECUTIVO ──
+  // -- HOJA 1: RESUMEN EJECUTIVO --
   const resData=[
-    ['STELLANTIS ARGENTINA — REPORTE DE INVENTARIO DE PLAYA','','','',''],
+    ['STELLANTIS ARGENTINA  -  REPORTE DE INVENTARIO DE PLAYA','','','',''],
     ['Inventario: '+S.invNombre,'','Fecha: '+fecha,'','Operario: '+(S.operario||'')],
     ['','','','',''],
     ['RESUMEN EJECUTIVO','','','',''],
@@ -1523,17 +1535,17 @@ function exportarExcelProfesional(datos, hojaNombre, nombreArchivo){
   wsRes['!merges']=[{s:{r:0,c:0},e:{r:0,c:6}},{s:{r:1,c:0},e:{r:1,c:1}},{s:{r:1,c:2},e:{r:1,c:3}}];
   XLSX.utils.book_append_sheet(wb,wsRes,'Resumen');
 
-  // ── HOJA 2: DATOS COMPLETOS ──
+  // -- HOJA 2: DATOS COMPLETOS --
   const filas=datos.map(r=>({
     'VIN':r.vin,
     'UBICACION COLECTADA':r.ubicacionPlaya||'',
     'UBICACION STOCK':r.ubicacionStock||'',
     'ESTADO':r.estado,
     'ACCION':(()=>{
-      if(r.estado==='OK') return 'OK — Ningun accion requerida';
+      if(r.estado==='OK') return 'OK  -  Ningun accion requerida';
       if(r.estado==='UBICACION_INCORRECTA') return 'Reparquear: '+(r.ubicacionPlaya||'?')+' -> '+(r.ubicacionStock||'?');
       if(r.estado==='NO_COLECTADO') return 'Busqueda fisica / Marcar VIR';
-      if(r.estado==='NO_EN_STOCK') return 'Verificar fisico — no deberia estar en playa';
+      if(r.estado==='NO_EN_STOCK') return 'Verificar fisico  -  no deberia estar en playa';
       if(r.estado==='EN_PRODUCTIVO') return 'Aguardar confirmacion de planta';
       return '';
     })(),
@@ -1545,7 +1557,7 @@ function exportarExcelProfesional(datos, hojaNombre, nombreArchivo){
   }));
 
   const encData=[
-    ['STELLANTIS ARGENTINA — DETALLE COMPLETO DE INVENTARIO','','','','','','','','',''],
+    ['STELLANTIS ARGENTINA  -  DETALLE COMPLETO DE INVENTARIO','','','','','','','','',''],
     ['Inventario: '+S.invNombre+' | Fecha: '+fecha+' | Total registros: '+datos.length,'','','','','','','','',''],
     [''],
     ['VIN','UBICACION COLECTADA','UBICACION STOCK','ESTADO','ACCION SUGERIDA','GRUPO','SUBGRUPO','FUENTE','MODELO','COLOR'],
@@ -1556,11 +1568,11 @@ function exportarExcelProfesional(datos, hojaNombre, nombreArchivo){
   wsData['!merges']=[{s:{r:0,c:0},e:{r:0,c:9}},{s:{r:1,c:0},e:{r:1,c:9}}];
   XLSX.utils.book_append_sheet(wb,wsData,hojaNombre.slice(0,31));
 
-  // ── HOJA 3: REPARQUEADAS ──
+  // -- HOJA 3: REPARQUEADAS --
   const reparq=r.filter(x=>x.estado==='UBICACION_INCORRECTA');
   if(reparq.length>0){
     const wrData=[
-      ['STELLANTIS — UNIDADES A REPARQUEAR','','','',''],
+      ['STELLANTIS  -  UNIDADES A REPARQUEAR','','','',''],
       ['Inventario: '+S.invNombre+' | Fecha: '+fecha,'','','',''],
       [''],
       ['VIN','MODELO','ESTA EN (PLAYA)','DEBE IR A (STOCK)','GRUPO'],
@@ -1572,11 +1584,11 @@ function exportarExcelProfesional(datos, hojaNombre, nombreArchivo){
     XLSX.utils.book_append_sheet(wb,wr,'Reparquear');
   }
 
-  // ── HOJA 4: FALTANTES ──
+  // -- HOJA 4: FALTANTES --
   const falt=r.filter(x=>x.estado==='NO_COLECTADO');
   if(falt.length>0){
     const wfData=[
-      ['STELLANTIS — UNIDADES FALTANTES','','','',''],
+      ['STELLANTIS  -  UNIDADES FALTANTES','','','',''],
       ['Inventario: '+S.invNombre+' | Fecha: '+fecha,'','','',''],
       [''],
       ['VIN','MODELO','UBICACION STOCK','GRUPO','ACCION'],
@@ -1588,11 +1600,11 @@ function exportarExcelProfesional(datos, hojaNombre, nombreArchivo){
     XLSX.utils.book_append_sheet(wb,wf,'Faltantes');
   }
 
-  // ── HOJA 5: SOBRANTES ──
+  // -- HOJA 5: SOBRANTES --
   const sobr=r.filter(x=>x.estado==='NO_EN_STOCK'||x.estado==='EN_PRODUCTIVO');
   if(sobr.length>0){
     const wsData2=[
-      ['STELLANTIS — UNIDADES SOBRANTES','','',''],
+      ['STELLANTIS  -  UNIDADES SOBRANTES','','',''],
       ['Inventario: '+S.invNombre+' | Fecha: '+fecha,'','',''],
       [''],
       ['VIN','UBICACION PLAYA','ESTADO','ACCION SUGERIDA'],
@@ -1604,11 +1616,11 @@ function exportarExcelProfesional(datos, hojaNombre, nombreArchivo){
     XLSX.utils.book_append_sheet(wb,ws2,'Sobrantes');
   }
 
-  // ── HOJA 6: VINs PENDIENTES ──
+  // -- HOJA 6: VINs PENDIENTES --
   const pends=getPendientes();
   if(pends.length>0){
     const wpData=[
-      ['STELLANTIS — VINs PENDIENTES DE COMPLETAR','','','',''],
+      ['STELLANTIS  -  VINs PENDIENTES DE COMPLETAR','','','',''],
       ['Inventario: '+S.invNombre+' | Fecha: '+fecha,'','','',''],
       [''],
       ['VIN / PARCIAL','TIPO','NOTA DEL COLECTOR','OPERARIO','VIN COMPLETO A COMPLETAR'],
@@ -1621,7 +1633,7 @@ function exportarExcelProfesional(datos, hojaNombre, nombreArchivo){
   }
 
   XLSX.writeFile(wb,nombreArchivo+'_'+fecha.replace(/\//g,'-')+'.xlsx');
-  toast('Excel exportado — '+wb.SheetNames.length+' hojas','ok');
+  toast('Excel exportado  -  '+wb.SheetNames.length+' hojas','ok');
 }
 
 function exportarReporte(){
@@ -1656,7 +1668,7 @@ function necesitaFoto(vin){
   if(enStock) return false;
   const enProd = (window._vinsProd||[]).includes(vin);
   if(enProd) return false;
-  return true; // desconocido — requiere foto
+  return true; // desconocido  -  requiere foto
 }
 
 function abrirModalFoto(vin, contexto){
@@ -1727,7 +1739,7 @@ async function fotoConfirmar(){
       inventario_id:S.invId,
       vin:fotoVinPendiente,
       tipo:'VERIFICAR FISICO',
-      texto:`VIN DESCONOCIDO — Requiere verificacion. ${notas?'Nota: '+notas:''}${fotoUrl?' Foto: '+fotoUrl:''}`,
+      texto:`VIN DESCONOCIDO  -  Requiere verificacion. ${notas?'Nota: '+notas:''}${fotoUrl?' Foto: '+fotoUrl:''}`,
       operario:S.operario||'',
       creado_en:new Date().toISOString()
     };
@@ -1762,26 +1774,7 @@ function pqContinuarConFoto(vin){ pqVinSel={vin,chass:vin.slice(-7),ver:'',fuent
 function parcialContinuarConFoto(vin){ /* se procesa en el analisis parcial */ }
 
 // ═══════════════════════════════════════════════════════════
-// INTEGRAR FOTO EN FLUJOS EXISTENTES
-// ═══════════════════════════════════════════════════════════
-// Interceptar loteAgregarVin para verificar si necesita foto
-const _origLoteAgregarVin = loteAgregarVin;
-window.loteAgregarVin = function(vin){
-  if(necesitaFoto(vin)){
-    abrirModalFoto(vin,'lote');
-    return; // esperar confirmación con foto
-  }
-  _origLoteAgregarVin(vin);
-};
-
-const _origColLoteAgregarVin = colLoteAgregarVin;
-window.colLoteAgregarVin = function(vin){
-  if(necesitaFoto(vin)){
-    abrirModalFoto(vin,'col-lote');
-    return;
-  }
-  _origColLoteAgregarVin(vin);
-};
+// [foto overrides moved to init]
 
 
 // ═══════════════════════════════════════════════════════════
@@ -1805,10 +1798,10 @@ function renderPendientes(){
   document.getElementById('pend-tbody').innerHTML=pends.length===0
     ?'<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--muted)">Sin VINs pendientes</td></tr>'
     :pends.map((o,i)=>`<tr>
-      <td class="mono" style="font-size:12px;font-weight:700;color:var(--warn)">${o.vin||'—'}</td>
-      <td class="mono" style="font-size:11px">${o.ubicacion||extractUbic(o.texto)||'—'}</td>
-      <td style="font-size:11px;color:var(--muted2)">${o.operario||'—'}</td>
-      <td style="font-size:11px;color:var(--muted2)">${o.creado_en?new Date(o.creado_en).toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—'}</td>
+      <td class="mono" style="font-size:12px;font-weight:700;color:var(--warn)">${o.vin||' - '}</td>
+      <td class="mono" style="font-size:11px">${o.ubicacion||extractUbic(o.texto)||' - '}</td>
+      <td style="font-size:11px;color:var(--muted2)">${o.operario||' - '}</td>
+      <td style="font-size:11px;color:var(--muted2)">${o.creado_en?new Date(o.creado_en).toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):' - '}</td>
       <td><span class="badge b-warn">${o.tipo}</span></td>
       <td><input class="inp inp-mono" style="font-size:12px;padding:5px 8px;width:180px" placeholder="VIN completo (17 chars)..." maxlength="17" id="pend-vin-${i}" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" oninput="pendBuscarVin(this.value,${i})"></td>
       <td><button class="btn btn-ok btn-xs" onclick="pendCompletarVin(${i})">Guardar</button></td>
@@ -1969,7 +1962,7 @@ function actualizarDonut(){
   const ncolN= t - r.filter(x=>x.ubicacionPlaya).length;
   const pct  = Math.round((r.filter(x=>x.ubicacionPlaya).length / t)*100);
 
-  // Donut — circumferencia = 2π×50 = 314.16
+  // Donut  -  circumferencia = 2π×50 = 314.16
   const C = 314.16;
   const toD = n => (n/t)*C;
   // offset: empezar arriba (−78.5 = −C/4)
@@ -2080,7 +2073,7 @@ function renderSectorBars(){
           <div style="height:100%;width:${pct}%;background:${color};border-radius:3px;transition:width .6s"></div>
         </div>
         <span style="font-size:10px;color:${color};min-width:36px;text-align:right">${pct}%</span>
-        ${falta>0?`<span style="font-size:9px;color:var(--muted);min-width:36px">-${falta}</span>`:'<span style="font-size:9px;color:var(--ok);min-width:36px">✓</span>'}
+        ${falta>0?`<span style="font-size:9px;color:var(--muted);min-width:36px">-${falta}</span>`:'<span style="font-size:9px;color:var(--ok);min-width:36px">OK</span>'}
       </div>`;
     }).join('');
 
