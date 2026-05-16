@@ -265,7 +265,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
       <span class="rol-badge rol-colector">COLECTOR</span>
-          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v3.5</span>
+          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v3.8</span>
       <div style="font-size:11px;color:var(--muted2)" id="col-operario-txt" onclick="openModal('modal-operario')" style="cursor:pointer">Toca para identificarte</div>
     </div>
   </div>
@@ -462,7 +462,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     <div class="tb-right">
       <div class="tb-op" id="tb-op" onclick="openModal('modal-operario')">Sin identificar</div>
       <span class="rol-badge rol-admin" id="tb-rol-badge" style="display:none">ADMIN</span>
-      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v3.5</span>
+      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v3.8</span>
       <button class="theme-toggle" onclick="toggleTheme()" title="Modo claro/oscuro" id="theme-btn">&#9788;</button>
       <button class="theme-toggle" onclick="solicitarNotificaciones()" id="notif-btn" title="Activar notificaciones push" style="display:none">&#9993;</button>
       <button class="btn btn-secondary btn-sm" id="btn-qr" onclick="openQRModal()" style="display:none" title="QR de acceso para colectores">QR</button>
@@ -1143,17 +1143,6 @@ async function init(){
   updateOfflineUI(); colUpdateOfflineUI();
   if(S.isOnline&&S.offlineQueue.length>0) syncOQ();
 
-  // Interceptar AQUI - despues de que todas las funciones esten definidas
-  const _origLote = loteAgregarVin;
-  window.loteAgregarVin = function(vin){
-    if(necesitaFoto(vin)){ abrirModalFoto(vin,'lote'); return; }
-    _origLote(vin);
-  };
-  const _origColLote = colLoteAgregarVin;
-  window.colLoteAgregarVin = function(vin){
-    if(necesitaFoto(vin)){ abrirModalFoto(vin,'col-lote'); return; }
-    _origColLote(vin);
-  };
 }
 function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.getElementById('nav-'+id).classList.add('active');if(id==='resultados')renderResultados();if(id==='observaciones')renderObs();if(id==='produccion'){cargarProduccion().then(()=>prodRenderTabla());}if(id==='parqueo'){pqFiltrar('');pqUpdateStats();}if(id==='dashboard')iniciarCampo();if(id==='parcial'){parcialInit();}if(id==='reporte'){repSetHoy();renderReporte();}if(id==='buscador')setTimeout(()=>document.getElementById('buscar-inp').focus(),100);if(id==='lote')loteRenderCheck();}
 function openModal(id){document.getElementById(id).classList.remove('hidden');}
@@ -1753,7 +1742,7 @@ async function fotoConfirmar(){
 
     // Continuar con el flujo original
     if(fotoCallbackCtx==='lote') loteAgregarConfirmado(fotoVinPendiente);
-    else if(fotoCallbackCtx==='col-lote') colLoteAgregarConfirmado(fotoVinPendiente);
+    // col-lote: foto ya registrada como observacion
     else if(fotoCallbackCtx==='pq') pqContinuarConFoto(fotoVinPendiente);
     else if(fotoCallbackCtx==='parcial') parcialContinuarConFoto(fotoVinPendiente);
 
