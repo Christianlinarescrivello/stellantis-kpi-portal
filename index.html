@@ -293,7 +293,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
       <span class="rol-badge rol-colector">COLECTOR</span>
-          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v4.2</span>
+          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v4.3</span>
       <div style="font-size:11px;color:var(--muted2)" id="col-operario-txt" onclick="openModal('modal-operario')" style="cursor:pointer">Toca para identificarte</div>
     </div>
   </div>
@@ -491,7 +491,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     <div class="tb-right">
       <div class="tb-op" id="tb-op" onclick="openModal('modal-operario')">Sin identificar</div>
       <span class="rol-badge rol-admin" id="tb-rol-badge" style="display:none">ADMIN</span>
-      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v4.2</span>
+      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v4.3</span>
       <button class="theme-toggle" onclick="abrirGestionarInv()" title="Gestionar inventario" id="btn-gestionar-inv" style="display:none">&#9881;</button>
       <button class="theme-toggle" onclick="toggleTheme()" title="Modo claro/oscuro" id="theme-btn">&#9788;</button>
       <button class="theme-toggle" onclick="solicitarNotificaciones()" id="notif-btn" title="Activar notificaciones push" style="display:none">&#9993;</button>
@@ -3122,6 +3122,144 @@ function actualizarEstadoBadge(){
   } else {
     el.style.display='none';
   }
+}
+
+
+// ═══════════════════════════════════════
+// COLECTOR — LOTE
+// ═══════════════════════════════════════
+function colLoteRenderCheck(){
+  const activo = S.loteActivo;
+  const config = document.getElementById('col-lote-config');
+  const scan   = document.getElementById('col-lote-scan-wrap');
+  if(config) config.style.display = activo ? 'none' : '';
+  if(scan)   scan.style.display   = activo ? ''     : 'none';
+  if(activo){
+    const nd = document.getElementById('col-lote-nombre-disp');
+    if(nd) nd.textContent = activo.nombre;
+    const cnt = document.getElementById('col-lote-counter');
+    if(cnt) cnt.textContent = activo.vins.length;
+    colLoteRenderList();
+    const undo = document.getElementById('col-lote-undo');
+    if(undo) undo.disabled = activo.vins.length === 0;
+  }
+}
+
+function colLoteIniciar(){
+  const inp = document.getElementById('col-lote-nombre');
+  if(!inp) return;
+  const nombre = inp.value.trim().toUpperCase();
+  if(!nombre){ toast('Ingresa el nombre del lote','warn'); return; }
+  if(!S.invId){ toast('Carga un inventario primero','warn'); return; }
+  S.loteActivo = { nombre, vins: [], ts: Date.now() };
+  inp.value = '';
+  colLoteRenderCheck();
+  setTimeout(()=>{ const s=document.getElementById('col-lote-scan'); if(s&&!isTouchDevice())s.focus(); }, 200);
+}
+
+function colLoteScan(val){
+  if(val.length < 6) return;
+  const vin = val.trim().slice(0,17).toUpperCase();
+  const inp = document.getElementById('col-lote-scan');
+  if(inp) inp.value = '';
+  colLoteAgregarVin(vin);
+}
+
+function colLoteAgregarVin(vin){
+  if(!S.loteActivo) return;
+  // Verificar duplicado en lote actual
+  const dupL = S.loteActivo.vins.find(v => v.vin === vin);
+  if(dupL){
+    const msg = document.getElementById('col-lote-conflict-msg');
+    if(msg) msg.textContent = `El VIN ${vin} ya fue escaneado (pos. ${S.loteActivo.vins.indexOf(dupL)+1})`;
+    const box = document.getElementById('col-lote-conflict-box');
+    if(box) box.style.display = '';
+    window.colPendingConflict = vin;
+    return;
+  }
+  // Verificar duplicado en colectas previas
+  const dupO = S.colectas.find(c => c.vin === vin);
+  if(dupO){
+    const msg = document.getElementById('col-lote-conflict-msg');
+    if(msg) msg.textContent = `El VIN ${vin} ya fue colectado en "${dupO.box}". Confirmar para actualizar.`;
+    const box = document.getElementById('col-lote-conflict-box');
+    if(box) box.style.display = '';
+    window.colPendingConflict = vin;
+    return;
+  }
+  colLoteAgregarConfirmado(vin);
+}
+
+function colLoteAgregarConfirmado(vin){
+  vibrar('scan');
+  S.loteActivo.vins.unshift({ vin, ts: Date.now() });
+  const cnt = document.getElementById('col-lote-counter');
+  if(cnt) cnt.textContent = S.loteActivo.vins.length;
+  const undo = document.getElementById('col-lote-undo');
+  if(undo) undo.disabled = false;
+  colLoteRenderList();
+}
+
+function colLoteConflictoConfirmar(){
+  if(window.colPendingConflict){
+    colLoteAgregarConfirmado(window.colPendingConflict);
+    window.colPendingConflict = null;
+  }
+  const box = document.getElementById('col-lote-conflict-box');
+  if(box) box.style.display = 'none';
+}
+
+function colLoteConflictoRechazar(){
+  window.colPendingConflict = null;
+  const box = document.getElementById('col-lote-conflict-box');
+  if(box) box.style.display = 'none';
+}
+
+function colLoteDeshacer(){
+  if(!S.loteActivo || S.loteActivo.vins.length === 0) return;
+  S.loteActivo.vins.shift();
+  const cnt = document.getElementById('col-lote-counter');
+  if(cnt) cnt.textContent = S.loteActivo.vins.length;
+  const undo = document.getElementById('col-lote-undo');
+  if(undo) undo.disabled = S.loteActivo.vins.length === 0;
+  colLoteRenderList();
+  toast('Ultimo VIN eliminado','warn');
+}
+
+function colLoteRenderList(){
+  const el = document.getElementById('col-lote-list');
+  if(!el || !S.loteActivo) return;
+  const vins = S.loteActivo.vins.slice(0,20);
+  el.innerHTML = vins.map((v,i) => {
+    const enStock = S.stock.find(s => s.vin === v.vin);
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
+      <span class="mono" style="font-size:12px;color:${enStock?'var(--ok)':'var(--warn)'}">${v.vin.slice(-10)}</span>
+      ${i===0?`<span style="font-size:10px;color:var(--muted2)">${enStock?enStock.boxatura||'':'no en stock'}</span>`:''}
+    </div>`;
+  }).join('');
+  if(S.loteActivo.vins.length > 20){
+    el.innerHTML += `<div style="font-size:11px;color:var(--muted);padding:6px 0">...y ${S.loteActivo.vins.length-20} mas</div>`;
+  }
+}
+
+async function colLoteConfirmar(){
+  if(!S.loteActivo || S.loteActivo.vins.length === 0){
+    toast('No hay VINs en el lote','warn'); return;
+  }
+  const { nombre, vins } = S.loteActivo;
+  toast('Guardando lote...','');
+  await subirColectaBulk(vins, nombre);
+  S.loteActivo = null;
+  colLoteRenderCheck();
+  colUpdateStats();
+}
+
+function colLoteCancelar(){
+  if(S.loteActivo && S.loteActivo.vins.length > 0){
+    if(!confirm('Cancelar lote "'+S.loteActivo.nombre+'"?\nSe perderan los '+S.loteActivo.vins.length+' VINs escaneados.')) return;
+  }
+  S.loteActivo = null;
+  colLoteRenderCheck();
 }
 
 window.addEventListener('load',init);
