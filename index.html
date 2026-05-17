@@ -240,6 +240,34 @@ tr:hover td{background:rgba(255,255,255,.015)}
   </div>
 </div></div>
 <!-- ═══ INTERFAZ COLECTOR (móvil/tablet) ═══ -->
+<!-- MODAL GESTIONAR INVENTARIO -->
+<div id="modal-gestionar-inv" class="modal-overlay hidden">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-title">Gestionar Inventario</div>
+    <div id="gest-inv-info" style="background:var(--card2);border:1px solid var(--border);border-radius:5px;padding:12px 14px;margin-bottom:14px">
+      <div style="font-size:15px;font-weight:700" id="gest-inv-nombre"></div>
+      <div style="font-size:11px;color:var(--muted2);margin-top:3px" id="gest-inv-fecha"></div>
+      <div style="font-size:11px;color:var(--muted2);margin-top:3px" id="gest-inv-stats"></div>
+    </div>
+    <div id="gest-inv-cerrado-warn" style="display:none;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:5px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--ko)">
+      Este inventario esta CERRADO. No se pueden registrar nuevas colectas ni validaciones.
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="btn btn-primary" id="gest-btn-cerrar" onclick="cerrarInventario()" style="background:rgba(245,158,11,.15);border:1px solid var(--warn);color:var(--warn)">
+        Cerrar inventario (sin eliminar)
+      </button>
+      <button class="btn btn-secondary" id="gest-btn-reabrir" onclick="reabrirInventario()" style="display:none">
+        Reabrir inventario
+      </button>
+      <div style="height:1px;background:var(--border);margin:4px 0"></div>
+      <button class="btn btn-secondary" onclick="eliminarInventarioActual()" style="color:var(--ko);border-color:var(--ko)">
+        Eliminar inventario y todos sus datos
+      </button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-gestionar-inv')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL QR -->
 <div id="modal-qr" class="modal-overlay hidden">
   <div class="modal" style="max-width:360px;text-align:center">
@@ -265,7 +293,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
       <span class="rol-badge rol-colector">COLECTOR</span>
-          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v4.1</span>
+          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v4.2</span>
       <div style="font-size:11px;color:var(--muted2)" id="col-operario-txt" onclick="openModal('modal-operario')" style="cursor:pointer">Toca para identificarte</div>
     </div>
   </div>
@@ -459,10 +487,12 @@ tr:hover td{background:rgba(255,255,255,.015)}
     <div class="tb-sep" id="inv-sep" style="display:none"></div>
     <div id="tb-inv-name" class="tb-inv" style="display:none"></div>
     <div id="tb-inv-date" class="tb-date" style="display:none"></div>
+    <span id="tb-inv-estado" style="display:none;font-size:10px;padding:2px 7px;border-radius:3px;font-weight:700;letter-spacing:1px;margin-left:4px"></span>
     <div class="tb-right">
       <div class="tb-op" id="tb-op" onclick="openModal('modal-operario')">Sin identificar</div>
       <span class="rol-badge rol-admin" id="tb-rol-badge" style="display:none">ADMIN</span>
-      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v4.1</span>
+      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v4.2</span>
+      <button class="theme-toggle" onclick="abrirGestionarInv()" title="Gestionar inventario" id="btn-gestionar-inv" style="display:none">&#9881;</button>
       <button class="theme-toggle" onclick="toggleTheme()" title="Modo claro/oscuro" id="theme-btn">&#9788;</button>
       <button class="theme-toggle" onclick="solicitarNotificaciones()" id="notif-btn" title="Activar notificaciones push" style="display:none">&#9993;</button>
       <button class="btn btn-secondary btn-sm" id="btn-qr" onclick="openQRModal()" style="display:none" title="QR de acceso para colectores">QR</button>
@@ -2012,14 +2042,16 @@ async function cargarInventario(id){
   if(S.isOnline){const{data}=await sb.from('inventarios').select('*').eq('id',id).maybeSingle();inv=data;}
   else{inv={id,nombre:localStorage.getItem('st_inv_nombre')||'Inventario',fecha:localStorage.getItem('st_inv_fecha')||''};}
   if(!inv)return;
-  S.invId=id;S.invNombre=inv.nombre;S.invFecha=inv.fecha;
+  S.invId=id;S.invNombre=inv.nombre;S.invFecha=inv.fecha;S.invCerrado=inv.cerrado||false;
   localStorage.setItem('st_inv_id',id);localStorage.setItem('st_inv_nombre',inv.nombre);localStorage.setItem('st_inv_fecha',inv.fecha);
   const sep=document.getElementById('inv-sep');if(sep)sep.style.display='';
   const nm=document.getElementById('tb-inv-name');if(nm){nm.style.display='';nm.textContent=inv.nombre;}
   const dt=document.getElementById('tb-inv-date');if(dt){dt.style.display='';dt.textContent=inv.fecha;}
   const bp=document.getElementById('btn-pdf');if(bp)bp.style.display='';
   const bq=document.getElementById('btn-qr');if(bq)bq.style.display='';
+  const bg2=document.getElementById('btn-gestionar-inv');if(bg2)bg2.style.display='';
   ['dashboard','buscador','lote','scanner','resultados','parcial','reporte','pendientes','observaciones','actividad','parqueo','produccion'].forEach(p=>{const n=document.getElementById('nav-'+p);if(n)n.classList.remove('disabled');});
+  actualizarEstadoBadge();
   await Promise.all([cargarStock(),cargarColectas(),cargarValidFijas(),cargarObservaciones(),cargarProduccion()]);
   cargarVinsProd().then(()=>{calcularResultados();updateStats();});
   cargarPlayaLista();
@@ -3000,6 +3032,96 @@ function exportarProduccion(){
   if(!data.length){toast('Sin datos','warn');return;}
   const ws=XLSX.utils.json_to_sheet(data);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Produccion');
   XLSX.writeFile(wb,'Produccion_ubicaciones_'+new Date().toLocaleDateString('es-AR').replace(/\//g,'-')+'.xlsx');toast('Exportado OK','ok');
+}
+
+
+// ═══════════════════════════════════════
+// GESTIONAR / CERRAR INVENTARIO
+// ═══════════════════════════════════════
+async function abrirGestionarInv(){
+  if(!S.invId) return;
+  document.getElementById('gest-inv-nombre').textContent = S.invNombre;
+  document.getElementById('gest-inv-fecha').textContent = 'Fecha: ' + S.invFecha;
+  const stats = `Stock: ${S.stock.length} | Colectas: ${S.colectas.length} | Validaciones: ${S.validFijas.length}`;
+  document.getElementById('gest-inv-stats').textContent = stats;
+  const cerrado = S.invCerrado || false;
+  document.getElementById('gest-inv-cerrado-warn').style.display = cerrado ? '' : 'none';
+  document.getElementById('gest-btn-cerrar').style.display = cerrado ? 'none' : '';
+  document.getElementById('gest-btn-reabrir').style.display = cerrado ? '' : 'none';
+  openModal('modal-gestionar-inv');
+}
+
+async function cerrarInventario(){
+  if(!S.invId || !confirm('Cerrar el inventario "'+S.invNombre+'"?\n\nQuedara bloqueado para nuevas colectas pero los datos se conservan. Podes reabrirlo cuando quieras.')) return;
+  if(S.isOnline){
+    const{error} = await sb.from('inventarios').update({cerrado:true, cerrado_en: new Date().toISOString()}).eq('id', S.invId);
+    if(error){ toast('Error al cerrar: '+error.message, 'ko'); return; }
+  }
+  S.invCerrado = true;
+  actualizarEstadoBadge();
+  closeModal('modal-gestionar-inv');
+  toast('Inventario cerrado', 'ok');
+}
+
+async function reabrirInventario(){
+  if(!S.invId || !confirm('Reabrir el inventario "'+S.invNombre+'"?')) return;
+  if(S.isOnline){
+    const{error} = await sb.from('inventarios').update({cerrado:false, cerrado_en: null}).eq('id', S.invId);
+    if(error){ toast('Error: '+error.message, 'ko'); return; }
+  }
+  S.invCerrado = false;
+  actualizarEstadoBadge();
+  closeModal('modal-gestionar-inv');
+  toast('Inventario reabierto', 'ok');
+}
+
+async function eliminarInventarioActual(){
+  if(!S.invId) return;
+  if(!confirm('ELIMINAR el inventario "'+S.invNombre+'" y TODOS sus datos?\n\nEsto borra stock, colectas, validaciones y observaciones.\n\nEsta accion NO se puede deshacer.')) return;
+  if(!confirm('Confirmar nuevamente: se borran TODOS los datos de "'+S.invNombre+'"')) return;
+  closeModal('modal-gestionar-inv');
+  toast('Eliminando...', 'warn');
+  if(S.isOnline){
+    await sb.from('colectas').delete().eq('inventario_id', S.invId);
+    await sb.from('validaciones_fijas').delete().eq('inventario_id', S.invId);
+    await sb.from('observaciones').delete().eq('inventario_id', S.invId);
+    await sb.from('stock').delete().eq('inventario_id', S.invId);
+    await sb.from('inventarios').delete().eq('id', S.invId);
+  }
+  // Limpiar local
+  S.invId=null; S.invNombre=''; S.invFecha=''; S.stock=[]; S.colectas=[];
+  S.validFijas=[]; S.observaciones=[]; S.resultados=[];
+  localStorage.removeItem('st_inv_id');
+  localStorage.removeItem('st_inv_nombre');
+  // Limpiar UI
+  const sep=document.getElementById('tb-inv-sep'); if(sep)sep.style.display='none';
+  const nm=document.getElementById('tb-inv-name'); if(nm)nm.style.display='none';
+  const dt=document.getElementById('tb-inv-date'); if(dt)dt.style.display='none';
+  const bg=document.getElementById('btn-gestionar-inv'); if(bg)bg.style.display='none';
+  const bp=document.getElementById('btn-pdf'); if(bp)bp.style.display='none';
+  const bq=document.getElementById('btn-qr'); if(bq)bq.style.display='none';
+  const be=document.getElementById('tb-inv-estado'); if(be)be.style.display='none';
+  ['dashboard','buscador','lote','scanner','resultados','parcial','reporte','pendientes','observaciones','actividad','parqueo','produccion'].forEach(p=>{
+    const n=document.getElementById('nav-'+p); if(n)n.classList.add('disabled');
+  });
+  updateStats();
+  await cargarInventariosRecientes();
+  showPage('dashboard');
+  toast('Inventario eliminado', 'ok');
+}
+
+function actualizarEstadoBadge(){
+  const el=document.getElementById('tb-inv-estado');
+  if(!el) return;
+  if(S.invCerrado){
+    el.style.display='';
+    el.textContent='CERRADO';
+    el.style.background='rgba(239,68,68,.15)';
+    el.style.color='var(--ko)';
+    el.style.border='1px solid rgba(239,68,68,.3)';
+  } else {
+    el.style.display='none';
+  }
 }
 
 window.addEventListener('load',init);
