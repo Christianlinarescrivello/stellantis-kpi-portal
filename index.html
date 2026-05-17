@@ -294,7 +294,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
       <span class="rol-badge rol-colector">COLECTOR</span>
-          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v5.0</span>
+          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v5.1</span>
       <div style="font-size:11px;color:var(--muted2)" id="col-operario-txt" onclick="openModal('modal-operario')" style="cursor:pointer">Toca para identificarte</div>
     </div>
   </div>
@@ -492,7 +492,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     <div class="tb-right">
       <div class="tb-op" id="tb-op" onclick="openModal('modal-operario')">Sin identificar</div>
       <span class="rol-badge rol-admin" id="tb-rol-badge" style="display:none">ADMIN</span>
-      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v5.0</span>
+      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v5.1</span>
       <button class="theme-toggle" onclick="abrirGestionarInv()" title="Gestionar inventario" id="btn-gestionar-inv" style="display:none">&#9881;</button>
       <button class="theme-toggle" onclick="toggleTheme()" title="Modo claro/oscuro" id="theme-btn">&#9788;</button>
       <button class="theme-toggle" onclick="solicitarNotificaciones()" id="notif-btn" title="Activar notificaciones push" style="display:none">&#9993;</button>
@@ -1518,7 +1518,9 @@ function getPendientes(){
   return pends;
 }
 
-function renderPendientes(){
+async function renderPendientes(){
+  // Recargar colectas frescas desde Supabase para asegurarse de tener los chasis cortos
+  if(S.invId && S.isOnline) await cargarColectas();
   const pends=getPendientes();
   document.getElementById('pend-count').textContent=pends.length;
   const badge=document.getElementById('badge-pendientes');
@@ -2219,6 +2221,10 @@ async function cargarObservaciones(){
   S.observaciones.sort((a,b)=>new Date(b.creado_en)-new Date(a.creado_en));
   try{localStorage.setItem('st_obs_'+S.invId,JSON.stringify(S.observaciones));}catch(e){}
   const badge=document.getElementById('badge-obs');if(badge)badge.textContent=S.observaciones.length;
+  // Update pendientes badge
+  const pb2=getPendientes?getPendientes():[];
+  const bpd=document.getElementById('badge-pendientes');
+  if(bpd){if(pb2.length>0){bpd.style.display='';bpd.textContent=pb2.length;}else bpd.style.display='none';}
 }
 
 async function agregarObs(){
