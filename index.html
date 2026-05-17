@@ -293,7 +293,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
       <span class="rol-badge rol-colector">COLECTOR</span>
-          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v4.4</span>
+          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v4.5</span>
       <div style="font-size:11px;color:var(--muted2)" id="col-operario-txt" onclick="openModal('modal-operario')" style="cursor:pointer">Toca para identificarte</div>
     </div>
   </div>
@@ -491,7 +491,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     <div class="tb-right">
       <div class="tb-op" id="tb-op" onclick="openModal('modal-operario')">Sin identificar</div>
       <span class="rol-badge rol-admin" id="tb-rol-badge" style="display:none">ADMIN</span>
-      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v4.4</span>
+      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v4.5</span>
       <button class="theme-toggle" onclick="abrirGestionarInv()" title="Gestionar inventario" id="btn-gestionar-inv" style="display:none">&#9881;</button>
       <button class="theme-toggle" onclick="toggleTheme()" title="Modo claro/oscuro" id="theme-btn">&#9788;</button>
       <button class="theme-toggle" onclick="solicitarNotificaciones()" id="notif-btn" title="Activar notificaciones push" style="display:none">&#9993;</button>
@@ -2258,17 +2258,25 @@ function exportarTodos(){exportarExcelProfesional(S.resultados,'INVENTARIO','Inv
 // ═══════════════════════════════════════
 function hv(vin,q){const idx=vin.toUpperCase().indexOf(q);if(idx<0)return vin;return vin.slice(0,idx)+`<span style="color:var(--accent);background:rgba(200,164,86,.15);border-radius:2px;padding:0 1px">${vin.slice(idx,idx+q.length)}</span>`+vin.slice(idx+q.length);}
 
-function buscarChasis(val){
+async function buscarChasis(val){
   const el=document.getElementById('buscar-results');if(!el)return;
   if(val.length<5){el.innerHTML='';return;}
   const q=val.toUpperCase().trim();
   agregarHistorial(q);
   const sm=S.stock.filter(s=>s.vin.toUpperCase().includes(q));
   const cn=S.colectas.filter(c=>c.vin.toUpperCase().includes(q)&&!S.stock.find(s=>s.vin===c.vin));
+  // Buscar en produccion
+  let pm=[];
+  if(S.isOnline&&q.length>=5){
+    const{data}=await sb.from('produccion').select('vin,chass,ver,esd').or(`chass.ilike.%${q}%,vin.ilike.%${q}%`).limit(5);
+    pm=(data||[]).filter(p=>!S.stock.find(s=>s.vin===p.vin));
+  }
   if(sm.length===0&&cn.length===0){el.innerHTML='<div style="font-size:13px;color:var(--muted);padding:10px 0">Sin resultados para "'+q+'"</div>';return;}
   let html='';
-  for(const s of sm.slice(0,10)){const col=S.colectas.find(c=>c.vin===s.vin);const es=col?(col.box===s.boxatura?'OK':'Playa: '+col.box):'No colectado';const ec=col?(col.box===s.boxatura?'var(--ok)':'var(--warn)'):'var(--muted2)';html+=`<div class="search-result-card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div><div class="mono" style="font-size:13px;font-weight:700;letter-spacing:2px">${hv(s.vin,q)}</div><div style="font-size:11px;color:var(--muted2);margin-top:2px">${s.modelo||'?'}</div></div><div style="text-align:right;flex-shrink:0"><div style="font-size:20px;font-weight:800;color:var(--accent);letter-spacing:2px" class="mono">${s.boxatura||'?'}</div><div style="font-size:10px;color:${ec};margin-top:2px">${es}</div></div></div></div>`;}
-  for(const c of cn.slice(0,5)){html+=`<div class="search-result-card" style="border-color:var(--warn)"><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="mono" style="font-size:13px;font-weight:700">${hv(c.vin,q)}</div><div style="font-size:10px;color:var(--warn);margin-top:2px">En playa sin stock</div></div><div style="font-size:20px;font-weight:800;color:var(--warn)" class="mono">${c.box}</div></div></div>`;}
+  for(const s of sm.slice(0,8)){const col=S.colectas.find(c=>c.vin===s.vin);const es=col?(col.box===s.boxatura?'OK':'Playa: '+col.box):'No colectado';const ec=col?(col.box===s.boxatura?'var(--ok)':'var(--warn)'):'var(--muted2)';html+=`<div class="search-result-card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div><div class="mono" style="font-size:13px;font-weight:700;letter-spacing:2px">${hv(s.vin,q)}</div><div style="font-size:11px;color:var(--muted2);margin-top:2px">${s.modelo||'?'}</div></div><div style="text-align:right;flex-shrink:0"><div style="font-size:20px;font-weight:800;color:var(--accent);letter-spacing:2px" class="mono">${s.boxatura||'?'}</div><div style="font-size:10px;color:${ec};margin-top:2px">${es}</div></div></div></div>`;}
+  for(const cc of cn.slice(0,3)){html+=`<div class="search-result-card" style="border-color:var(--warn)"><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="mono" style="font-size:13px;font-weight:700">${hv(cc.vin,q)}</div><div style="font-size:10px;color:var(--warn);margin-top:2px">En playa sin stock</div></div><div style="font-size:20px;font-weight:800;color:var(--warn)" class="mono">${cc.box}</div></div></div>`;}
+  for(const p of pm.slice(0,3)){const ubProd=prodUbicaciones.find(u=>u.vin===p.vin&&u.activa);html+=`<div class="search-result-card" style="border-color:var(--purple)"><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="mono" style="font-size:13px;font-weight:700">${hv(p.vin,q)}</div><div style="font-size:10px;color:var(--purple);margin-top:2px">PRODUCTIVO${p.ver?' - VER: '+p.ver:''}${p.esd?' - ESD: '+p.esd:''}</div></div><div style="font-size:14px;font-weight:800;color:var(--purple);text-align:right" class="mono">${ubProd?ubProd.ubicacion:'Sin ubicar'}</div></div></div>`;}
+  if(!html) html='<div style="font-size:13px;color:var(--muted);padding:10px 0">Sin resultados para "'+q+'"</div>';
   el.innerHTML=html;
 }
 
@@ -3319,6 +3327,353 @@ function colLoteCancelar(){
   }
   S.loteActivo = null;
   colLoteRenderCheck();
+}
+
+
+// ═══════════════════════════════════════
+// COLECTOR — PLAYA FIJA (SCANNER)
+// ═══════════════════════════════════════
+let colSc = {
+  sector:'A', calle:'001', dir:'asc', idx:0,
+  boxes:[], sesion:{ok:0,ko:0,vac:0}
+};
+
+function colScInitCalles(){
+  const sel = document.getElementById('col-sc-sector');
+  if(!sel) return;
+  // Populate sector options
+  sel.innerHTML = Object.keys(SECTORES).map(s =>
+    `<option value="${s}" ${s===colSc.sector?'selected':''}>${s === colSc.sector ? 'Sector '+s : 'Sector '+s}</option>`
+  ).join('');
+  colScSectorChange();
+}
+
+function colScSectorChange(){
+  const sec = document.getElementById('col-sc-sector');
+  if(sec) colSc.sector = sec.value;
+  const calles = SECTORES[colSc.sector]?.calles || [];
+  const sel = document.getElementById('col-sc-calle');
+  if(sel){
+    sel.innerHTML = calles.map(c => `<option value="${c}">${c}</option>`).join('');
+    colSc.calle = calles[0] || '001';
+  }
+  colSc.idx = 0;
+  colScReconstruirBoxes();
+}
+
+function colScCalleChange(){
+  const sel = document.getElementById('col-sc-calle');
+  if(sel) colSc.calle = sel.value;
+  colSc.idx = 0;
+  colScReconstruirBoxes();
+}
+
+function colScReconstruirBoxes(){
+  const maxBoxes = SECTORES[colSc.sector]?.boxes || 52;
+  colSc.boxes = Array.from({length: maxBoxes}, (_,i) => {
+    const box = String(i+1).padStart(3,'0');
+    return colSc.sector + colSc.calle + box;
+  });
+  if(colSc.dir === 'desc') colSc.boxes = [...colSc.boxes].reverse();
+  colSc.idx = 0;
+  colScRender();
+}
+
+function colScRender(){
+  const ubic = colSc.boxes[colSc.idx] || '';
+  const uEl = document.getElementById('col-sc-ubic');
+  if(uEl) uEl.textContent = ubic;
+
+  // Grupo label
+  const grp = document.getElementById('col-sc-grupo');
+  if(grp){
+    const cl = clasificarUbicacion(ubic);
+    grp.textContent = cl.grupo + ' - SECTOR ' + colSc.sector + ' - CALLE ' + colSc.calle;
+  }
+
+  // Expected VIN from stock
+  const si = S.stock.find(s => s.boxatura === ubic);
+  const expEl = document.getElementById('col-sc-exp');
+  if(expEl){
+    if(si){ expEl.textContent = '...' + si.vin.slice(-7); expEl.style.color = 'var(--text)'; }
+    else  { expEl.textContent = 'VACÍO'; expEl.style.color = 'var(--muted)'; }
+  }
+
+  // Show/hide ESTA OK button
+  const eow = document.getElementById('col-esta-ok-wrap');
+  if(eow) eow.style.display = si ? '' : 'none';
+
+  // Check if already validated
+  const pv = S.validFijas.find(v => v.ubicacion === ubic);
+  if(pv) colScMostrarResultado(pv.resultado);
+  else   colScLimpiarResultado();
+
+  // Progress
+  const prog = document.getElementById('col-sc-progress');
+  if(prog) prog.textContent = (colSc.idx+1) + ' / ' + colSc.boxes.length;
+
+  // Session stats
+  const set = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+  set('col-sc-ok', colSc.sesion.ok);
+  set('col-sc-ko', colSc.sesion.ko);
+  set('col-sc-vac', colSc.sesion.vac);
+
+  // Save position
+  colScGuardarPosicion();
+}
+
+function colScMove(dir){
+  const next = colSc.idx + dir;
+  if(next < 0 || next >= colSc.boxes.length) return;
+  colSc.idx = next;
+  colScLimpiarResultado();
+  colScRender();
+}
+
+function colScInput(val){
+  if(val.length < 6) return;
+  const vin = val.trim().slice(0,17).toUpperCase();
+  const inp = document.getElementById('col-sc-inp');
+  if(inp){ inp.value = ''; if(isTouchDevice()) inp.blur(); }
+  colScProcesarVin(vin);
+}
+
+function colScProcesarVin(vin){
+  const ubic = colSc.boxes[colSc.idx] || '';
+  const si = S.stock.find(s => s.boxatura === ubic);
+  const vinEsperado = si ? si.vin : null;
+
+  let resultado;
+  if(!ubic){ toast('Sin ubicacion','warn'); return; }
+
+  if(!vinEsperado){
+    // Ubicacion vacia - aparecio un auto
+    resultado = 'INESPERADO';
+  } else if(vin === vinEsperado){
+    resultado = 'COINCIDE';
+  } else {
+    resultado = 'OTRO_VIN';
+  }
+
+  guardarValidFija({
+    ubicacion: ubic,
+    vin_esperado: vinEsperado || '',
+    vin_encontrado: vin,
+    resultado
+  });
+  colActualizarSesion(resultado);
+  colScMostrarResultado(resultado);
+  setTimeout(() => colScMove(1), 700);
+}
+
+function colScEstaOK(){
+  const ubic = colSc.boxes[colSc.idx] || '';
+  const si = S.stock.find(s => s.boxatura === ubic);
+  if(!si) return;
+  guardarValidFija({ ubicacion:ubic, vin_esperado:si.vin, vin_encontrado:si.vin, resultado:'COINCIDE' });
+  colActualizarSesion('COINCIDE');
+  colScMostrarResultado('COINCIDE');
+  setTimeout(() => colScMove(1), 700);
+}
+
+function colScVacioOK(){
+  const ubic = colSc.boxes[colSc.idx] || '';
+  const si = S.stock.find(s => s.boxatura === ubic);
+  const resultado = si ? 'VACIO_INESPERADO' : 'VACIO_OK';
+  guardarValidFija({ ubicacion:ubic, vin_esperado:si?.vin||'', vin_encontrado:'', resultado });
+  colActualizarSesion(resultado);
+  colScMostrarResultado(resultado);
+  setTimeout(() => colScMove(1), 700);
+}
+
+function colScSaltar(){
+  colScMove(1);
+}
+
+function colActualizarSesion(resultado){
+  if(resultado==='COINCIDE'||resultado==='VACIO_OK'){ colSc.sesion.ok++; vibrar('ok'); }
+  else if(resultado==='OTRO_VIN'||resultado==='VACIO_INESPERADO'||resultado==='INESPERADO'){ colSc.sesion.ko++; vibrar('ko'); }
+  else if(resultado==='VACIO_OK'){ colSc.sesion.vac++; }
+}
+
+const COL_RL = {
+  COINCIDE:       ['COINCIDE',    'sr-ok'],
+  VACIO_OK:       ['VACIO OK',    'sr-ok'],
+  OTRO_VIN:       ['VIN DIFERENTE','sr-ko'],
+  VACIO_INESPERADO:['VACIO INESPERADO','sr-ko'],
+  INESPERADO:     ['AUTO SIN ASIGNACION','sr-warn'],
+};
+
+function colScMostrarResultado(res){
+  const [lbl,cls] = COL_RL[res] || [res,'sr-warn'];
+  const el = document.getElementById('col-sc-result');
+  if(el){ el.className='scan-result '+cls; el.textContent=lbl; el.style.display=''; }
+  const inp = document.getElementById('col-sc-inp');
+  if(inp){ inp.value=''; inp.style.display='none'; if(isTouchDevice()) inp.blur(); }
+}
+
+function colScLimpiarResultado(){
+  const el = document.getElementById('col-sc-result');
+  if(el) el.style.display='none';
+  const inp = document.getElementById('col-sc-inp');
+  if(inp){ inp.style.display=''; inp.value=''; }
+  // No focus en tactil
+}
+
+function colScGuardarPosicion(){
+  try{
+    localStorage.setItem('colsc_pos', JSON.stringify({
+      sector: colSc.sector, calle: colSc.calle,
+      dir: colSc.dir, idx: colSc.idx
+    }));
+  }catch(e){}
+}
+
+function colScRestaurarPosicion(){
+  try{
+    const saved = JSON.parse(localStorage.getItem('colsc_pos')||'null');
+    if(!saved) return;
+    colSc.sector = saved.sector || 'A';
+    colSc.calle  = saved.calle  || '001';
+    colSc.dir    = saved.dir    || 'asc';
+    colSc.idx    = saved.idx    || 0;
+    const secSel = document.getElementById('col-sc-sector');
+    if(secSel) secSel.value = colSc.sector;
+    colScSectorChange();
+    const calSel = document.getElementById('col-sc-calle');
+    if(calSel){ calSel.value = colSc.calle; }
+    colSc.idx = saved.idx || 0;
+    colScReconstruirBoxes();
+  }catch(e){ colScInitCalles(); }
+}
+
+function colSetDir(dir){
+  colSc.dir = dir;
+  const asc = document.getElementById('col-sc-dir-asc');
+  const desc= document.getElementById('col-sc-dir-desc');
+  if(asc) asc.className = 'btn btn-sm ' + (dir==='asc'?'btn-primary':'btn-secondary');
+  if(desc)desc.className = 'btn btn-sm ' + (dir==='desc'?'btn-primary':'btn-secondary');
+  colScReconstruirBoxes();
+}
+
+// ═══════════════════════════════════════
+// COLECTOR — PARQUEO
+// ═══════════════════════════════════════
+let colPqSel = null;
+let colPqTipoActual = 'fisica';
+
+function colPqCalles(){
+  const s = document.getElementById('col-pq-sector')?.value || 'A';
+  const calles = SECTORES[s]?.calles || [];
+  const sel = document.getElementById('col-pq-calle');
+  if(sel) sel.innerHTML = calles.map(c=>`<option value="${c}">${c}</option>`).join('');
+  colPqBoxes();
+}
+
+function colPqBoxes(){
+  const s = document.getElementById('col-pq-sector')?.value || 'A';
+  const max = SECTORES[s]?.boxes || 52;
+  const sel = document.getElementById('col-pq-box');
+  if(sel) sel.innerHTML = Array.from({length:max},(_,i)=>String(i+1).padStart(3,'0')).map(b=>`<option value="${b}">${b}</option>`).join('');
+  colPqPreview();
+}
+
+function colPqPreview(){
+  const s = document.getElementById('col-pq-sector')?.value||'A';
+  const c2 = document.getElementById('col-pq-calle')?.value||'001';
+  const b = document.getElementById('col-pq-box')?.value||'001';
+  const el = document.getElementById('col-pq-preview');
+  if(colPqTipoActual==='fisica'){if(el) el.textContent = s+c2+b;}
+}
+
+function colPqSetTipo(tipo){
+  colPqTipoActual = tipo;
+  const fw = document.getElementById('col-pq-fisica-wrap');
+  const lw = document.getElementById('col-pq-lote-wrap');
+  if(fw) fw.style.display = tipo==='fisica'?'':'none';
+  if(lw) lw.style.display = tipo==='lote'?'':'none';
+  const bf = document.getElementById('col-pq-tipo-fisica');
+  const bl = document.getElementById('col-pq-tipo-lote');
+  if(bf) bf.className = 'btn btn-sm '+(tipo==='fisica'?'btn-primary':'btn-secondary');
+  if(bl) bl.className = 'btn btn-sm '+(tipo==='lote'?'btn-primary':'btn-secondary');
+  if(tipo==='fisica'){colPqCalles();colPqBoxes();colPqPreview();}
+}
+
+async function colPqBuscar(val){
+  const q = val.trim().toUpperCase();
+  const el = document.getElementById('col-pq-results');
+  if(!el) return;
+  colPqSel = null;
+  const selBox = document.getElementById('col-pq-sel-box');
+  if(selBox) selBox.style.display='none';
+  if(q.length < 4){ el.innerHTML=''; return; }
+  const sm = S.stock.filter(s=>s.vin.toUpperCase().includes(q)).slice(0,5);
+  let pm = [];
+  if(S.isOnline){
+    const{data} = await sb.from('produccion').select('vin,chass,ver').or(`chass.ilike.%${q}%,vin.ilike.%${q}%`).limit(5);
+    pm = data||[];
+  }
+  const items=[];const seen=new Set();
+  sm.forEach(s=>{if(!seen.has(s.vin)){seen.add(s.vin);items.push({vin:s.vin,chass:s.vin.slice(-7),ver:'',fuente:'stock',boxatura:s.boxatura});}});
+  pm.forEach(p=>{if(!seen.has(p.vin)){seen.add(p.vin);items.push({vin:p.vin,chass:p.chass||p.vin.slice(-7),ver:p.ver||'',fuente:'produccion'});}});
+  if(!items.length){ el.innerHTML=`<div style="font-size:12px;color:var(--muted);padding:6px">No encontrado</div>`; return; }
+  el.innerHTML=items.map(it=>`<div class="manual-sug-item" onclick="colPqSeleccionar('${encodeURIComponent(JSON.stringify(it))}')"><div class="mono" style="font-size:12px;font-weight:700">${it.vin.slice(-10)}</div><div style="font-size:10px;color:var(--muted2)">CHASS: ${it.chass}${it.boxatura?' | Stock: '+it.boxatura:''}</div></div>`).join('');
+}
+
+function colPqSeleccionar(jsonEnc){
+  const it = JSON.parse(decodeURIComponent(jsonEnc));
+  colPqSel = it;
+  const el = document.getElementById('col-pq-results');
+  if(el) el.innerHTML='';
+  const inp = document.getElementById('col-pq-buscar-inp');
+  if(inp) inp.value='';
+  const sv = document.getElementById('col-pq-sel-vin');
+  if(sv) sv.textContent = it.vin;
+  const sc = document.getElementById('col-pq-sel-chass');
+  if(sc) sc.textContent = 'CHASS: '+it.chass;
+  const sb2 = document.getElementById('col-pq-sel-box');
+  if(sb2) sb2.style.display='';
+  colPqSetTipo('fisica');
+}
+
+async function colPqGuardar(){
+  if(!colPqSel){ toast('Selecciona un vehiculo','warn'); return; }
+  let ubicacion='', tipoFinal=colPqTipoActual;
+  if(colPqTipoActual==='fisica'){
+    const s=document.getElementById('col-pq-sector')?.value||'A';
+    const cl=document.getElementById('col-pq-calle')?.value||'001';
+    const bx=document.getElementById('col-pq-box')?.value||'001';
+    ubicacion = s+cl+bx;
+  } else {
+    const raw = document.getElementById('col-pq-lote-inp')?.value.trim()||'';
+    if(!raw){ toast('Ingresa el lote','warn'); return; }
+    ubicacion = normalizarUbicacion(raw);
+    if(esUbicacionFisicaValida(ubicacion)) tipoFinal='fisica';
+  }
+  const notas = document.getElementById('col-pq-notas')?.value.trim()||'';
+  const registro = {
+    vin: colPqSel.vin, chass: colPqSel.chass||colPqSel.vin.slice(-7),
+    ubicacion, tipo_ubicacion: tipoFinal, estado:'PENDIENTE',
+    ver: colPqSel.ver||'', fuente: colPqSel.fuente||'manual',
+    operario: S.operario||'', notas, creado_en: new Date().toISOString()
+  };
+  pqData.unshift(registro);
+  try{ localStorage.setItem('st_pq', JSON.stringify(pqData)); }catch(e){}
+  const sent = await queueOrSend('parqueo', registro);
+  if(sent){
+    enviarNotificacion('Parqueo registrado', registro.chass+' -> '+ubicacion, 'parqueo');
+    toast('Parqueo guardado: '+ubicacion, 'ok');
+  } else {
+    toast('Sin conexion - guardado offline','warn');
+  }
+  // Reset form
+  colPqSel = null;
+  const sb3 = document.getElementById('col-pq-sel-box');
+  if(sb3) sb3.style.display='none';
+  const inp2 = document.getElementById('col-pq-buscar-inp');
+  if(inp2) inp2.value='';
+  const nt = document.getElementById('col-pq-notas');
+  if(nt) nt.value='';
 }
 
 window.addEventListener('load',init);
