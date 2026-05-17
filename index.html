@@ -294,7 +294,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
       <span class="rol-badge rol-colector">COLECTOR</span>
-          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v4.8</span>
+          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v5.0</span>
       <div style="font-size:11px;color:var(--muted2)" id="col-operario-txt" onclick="openModal('modal-operario')" style="cursor:pointer">Toca para identificarte</div>
     </div>
   </div>
@@ -492,7 +492,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     <div class="tb-right">
       <div class="tb-op" id="tb-op" onclick="openModal('modal-operario')">Sin identificar</div>
       <span class="rol-badge rol-admin" id="tb-rol-badge" style="display:none">ADMIN</span>
-      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v4.8</span>
+      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v5.0</span>
       <button class="theme-toggle" onclick="abrirGestionarInv()" title="Gestionar inventario" id="btn-gestionar-inv" style="display:none">&#9881;</button>
       <button class="theme-toggle" onclick="toggleTheme()" title="Modo claro/oscuro" id="theme-btn">&#9788;</button>
       <button class="theme-toggle" onclick="solicitarNotificaciones()" id="notif-btn" title="Activar notificaciones push" style="display:none">&#9993;</button>
@@ -1182,11 +1182,14 @@ function scProcesarVin(scaneado){
   guardarValidFija({ubicacion:ubic,vin_esperado:ve,vin_encontrado:scaneado,resultado:r});actualizarSesion(r);scMostrarResultado(r);setTimeout(()=>scMove(1),1200);
 }
 function scEstaOK(){
-  // Confirma que el auto esperado está presente y correcto, sin escanear
   const ubic=document.getElementById('sc-ubicacion').textContent;
   const si=S.stock.find(s=>s.boxatura===ubic);
-  if(!si) return; // no debería pasar (botón oculto si no hay VIN esperado)
+  if(!si) return;
   guardarValidFija({ubicacion:ubic,vin_esperado:si.vin,vin_encontrado:si.vin,resultado:'COINCIDE'});
+  // Agregar a colectas local si no existe, para que aparezca en el cruce con ubicacion real
+  if(!S.colectas.find(cc=>cc.vin===si.vin)){
+    S.colectas.push({vin:si.vin,box:ubic,sector:ubic[0],archivo:'FIJA_'+ubic,operario:S.operario,creado_en:new Date().toISOString()});
+  }
   actualizarSesion('COINCIDE');
   scMostrarResultado('COINCIDE');
   setTimeout(()=>scMove(1),700);
@@ -1488,11 +1491,31 @@ function parcialContinuarConFoto(vin){ /* se procesa en el analisis parcial */ }
 // VINs PENDIENTES DE COMPLETAR
 // ═══════════════════════════════════════════════════════════
 function getPendientes(){
-  // Buscar en observaciones las que tienen VIN corto (parcial) o son VERIFICAR FISICO
-  return S.observaciones.filter(o=>{
-    const vin=o.vin||'';
-    return o.tipo==='VERIFICAR FISICO' || vin.length<17;
-  });
+  const pends = [];
+  const seen = new Set();
+
+  // 1. Observaciones VERIFICAR FISICO o VIN corto
+  for(const o of S.observaciones){
+    const vin = o.vin||'';
+    if(o.tipo==='VERIFICAR FISICO' || vin.length<17){
+      if(!seen.has(vin)){ seen.add(vin); pends.push({...o, _source:'obs'}); }
+    }
+  }
+
+  // 2. Colectas con VIN corto (menos de 17 chars) — chasis parciales registrados en campo
+  for(const c of S.colectas){
+    const vin = c.vin||'';
+    if(vin.length < 17 && !seen.has(vin)){
+      seen.add(vin);
+      pends.push({
+        vin, ubicacion: c.box||c.sector||'',
+        operario: c.operario||'', creado_en: c.creado_en||'',
+        tipo: 'CHASIS PARCIAL', texto: 'Colectado en '+( c.box||c.sector||'?')+' con chasis incompleto',
+        _source:'colecta', _colectaBox: c.box||c.sector||''
+      });
+    }
+  }
+  return pends;
 }
 
 function renderPendientes(){
@@ -1538,7 +1561,29 @@ async function pendCompletarVin(idx){
   const nuevoVin=document.getElementById('pend-vin-'+idx)?.value.trim().toUpperCase();
   if(!nuevoVin||nuevoVin.length<6){toast('Ingresa el VIN completo','warn');return;}
 
-  // Actualizar la observacion con el VIN completo
+  if(obs._source==='colecta'){
+    // Actualizar en tabla colectas: reemplazar el VIN parcial por el completo
+    const colIdx = S.colectas.findIndex(c=>c.vin===obs.vin);
+    if(colIdx>=0){
+      const vinViejo = obs.vin;
+      S.colectas[colIdx].vin = nuevoVin;
+      try{localStorage.setItem('st_col_'+S.invId,JSON.stringify(S.colectas));}catch(e){}
+      if(S.isOnline){
+        // Actualizar en Supabase
+        await sb.from('colectas')
+          .update({vin: nuevoVin})
+          .eq('inventario_id', S.invId)
+          .eq('vin', vinViejo);
+      }
+      // Recalcular cruce
+      calcularResultados(); updateStats();
+      toast('VIN completado: '+nuevoVin+' (colecta actualizada)','ok');
+      renderPendientes();
+      return;
+    }
+  }
+
+  // Source = observacion
   const obsIdx=S.observaciones.findIndex(o=>o===obs);
   if(obsIdx>=0){
     S.observaciones[obsIdx].vin=nuevoVin;
@@ -1547,6 +1592,7 @@ async function pendCompletarVin(idx){
     if(S.isOnline&&obs.id){
       await sb.from('observaciones').update({vin:nuevoVin,texto:S.observaciones[obsIdx].texto}).eq('id',obs.id);
     }
+    calcularResultados(); updateStats();
     toast('VIN completado: '+nuevoVin,'ok');
     renderPendientes();
   }
@@ -2216,7 +2262,14 @@ function calcularResultados(){
   const res=[];
   const vip={};
   for(const c of S.colectas)vip[c.vin]=c.box;
-  for(const vf of S.validFijas){if(vf.resultado==='COINCIDE'&&vf.vin_esperado&&!(vf.vin_esperado in vip))vip[vf.vin_esperado]=vf.ubicacion;}
+  for(const vf of S.validFijas){
+    // COINCIDE: el VIN esperado está en esa ubicacion
+    if(vf.resultado==='COINCIDE'&&vf.vin_esperado&&!(vf.vin_esperado in vip))
+      vip[vf.vin_esperado]=vf.ubicacion;
+    // OTRO_VIN / INESPERADO: se encontró un VIN diferente en esa ubicacion — también cuenta como colectado
+    if((vf.resultado==='OTRO_VIN'||vf.resultado==='INESPERADO')&&vf.vin_encontrado&&vf.vin_encontrado.length>=7&&!(vf.vin_encontrado in vip))
+      vip[vf.vin_encontrado]=vf.ubicacion;
+  }
   const vsStock=new Set(S.stock.map(s=>s.vin));
   const vsProd=new Set((window._vinsProd||[]).map(v=>v));
   for(const s of S.stock){
@@ -3502,6 +3555,10 @@ function colScEstaOK(){
   const si = S.stock.find(s => s.boxatura === ubic);
   if(!si) return;
   guardarValidFija({ ubicacion:ubic, vin_esperado:si.vin, vin_encontrado:si.vin, resultado:'COINCIDE' });
+  // Agregar a colectas local con ubicacion real
+  if(!S.colectas.find(cc=>cc.vin===si.vin)){
+    S.colectas.push({vin:si.vin,box:ubic,sector:ubic[0],archivo:'FIJA_'+ubic,operario:S.operario,creado_en:new Date().toISOString()});
+  }
   colActualizarSesion('COINCIDE');
   colScMostrarResultado('COINCIDE');
   setTimeout(() => colScMove(1), 700);
