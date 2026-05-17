@@ -293,7 +293,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
       <span class="rol-badge rol-colector">COLECTOR</span>
-          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v4.3</span>
+          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v4.4</span>
       <div style="font-size:11px;color:var(--muted2)" id="col-operario-txt" onclick="openModal('modal-operario')" style="cursor:pointer">Toca para identificarte</div>
     </div>
   </div>
@@ -491,7 +491,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     <div class="tb-right">
       <div class="tb-op" id="tb-op" onclick="openModal('modal-operario')">Sin identificar</div>
       <span class="rol-badge rol-admin" id="tb-rol-badge" style="display:none">ADMIN</span>
-      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v4.3</span>
+      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v4.4</span>
       <button class="theme-toggle" onclick="abrirGestionarInv()" title="Gestionar inventario" id="btn-gestionar-inv" style="display:none">&#9881;</button>
       <button class="theme-toggle" onclick="toggleTheme()" title="Modo claro/oscuro" id="theme-btn">&#9788;</button>
       <button class="theme-toggle" onclick="solicitarNotificaciones()" id="notif-btn" title="Activar notificaciones push" style="display:none">&#9993;</button>
@@ -2272,15 +2272,74 @@ function buscarChasis(val){
   el.innerHTML=html;
 }
 
-function buscarChasisCol(val){
+async function buscarChasisCol(val){
   const el=document.getElementById('col-buscar-results');if(!el)return;
   if(val.length<5){el.innerHTML='';return;}
   const q=val.toUpperCase().trim();
+  agregarHistorial(q);
+  // Stock
   const sm=S.stock.filter(s=>s.vin.toUpperCase().includes(q));
+  // Colectas sin stock
   const cn=S.colectas.filter(c=>c.vin.toUpperCase().includes(q)&&!S.stock.find(s=>s.vin===c.vin));
-  if(sm.length===0&&cn.length===0){el.innerHTML='<div style="font-size:13px;color:var(--muted);padding:8px 0">Sin resultados</div>';return;}
+  // Produccion (consulta puntual)
+  let pm=[];
+  if(S.isOnline && q.length>=5){
+    try{
+      const{data}=await sb.from('produccion').select('vin,chass,ver,esd').or(`chass.ilike.%${q}%,vin.ilike.%${q}%`).limit(5);
+      pm=(data||[]).filter(p=>!S.stock.find(s=>s.vin===p.vin));
+    }catch(e){}
+  } else {
+    // Buscar en cache local de _vinsProd
+    pm=(window._vinsProd||[]).filter(v=>v.includes(q)).slice(0,5).map(v=>({vin:v,chass:v.slice(-7)}));
+  }
+  if(sm.length===0&&cn.length===0&&pm.length===0){
+    el.innerHTML='<div style="font-size:13px;color:var(--muted);padding:8px 0">Sin resultados en stock ni produccion</div>';return;
+  }
   let html='';
-  for(const s of sm.slice(0,8)){const col=S.colectas.find(c=>c.vin===s.vin);const es=col?(col.box===s.boxatura?'OK':'Playa: '+col.box):'No colectado';const ec=col?(col.box===s.boxatura?'var(--ok)':'var(--warn)'):'var(--muted2)';html+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:12px 14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="mono" style="font-size:12px;font-weight:700">${hv(s.vin,q)}</div><div style="font-size:10px;color:var(--muted2)">${s.modelo||''}</div></div><div style="text-align:right"><div style="font-size:22px;font-weight:800;color:var(--accent);font-family:var(--mono)">${s.boxatura||'?'}</div><div style="font-size:10px;color:${ec}">${es}</div></div></div></div>`;}
+  // Stock results
+  for(const s of sm.slice(0,6)){
+    const col=S.colectas.find(c=>c.vin===s.vin);
+    const es=col?(col.box===s.boxatura?'OK':'Playa: '+col.box):'No colectado';
+    const ec=col?(col.box===s.boxatura?'var(--ok)':'var(--warn)'):'var(--muted2)';
+    html+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:12px 14px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div class="mono" style="font-size:12px;font-weight:700">${hv(s.vin,q)}</div>
+          <div style="font-size:10px;color:var(--muted2)">${s.modelo||''}</div>
+          <span class="badge b-info" style="margin-top:3px">STOCK</span>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:22px;font-weight:800;color:var(--accent);font-family:var(--mono)">${s.boxatura||'?'}</div>
+          <div style="font-size:10px;color:${ec}">${es}</div>
+        </div>
+      </div>
+    </div>`;
+  }
+  // Produccion results
+  for(const p of pm.slice(0,4)){
+    html+=`<div style="background:var(--card);border:1px solid var(--warn);border-radius:6px;padding:12px 14px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div class="mono" style="font-size:12px;font-weight:700">${hv(p.vin,q)}</div>
+          <div style="font-size:10px;color:var(--muted2)">CHASS: ${p.chass||''}${p.ver?' | VER: '+p.ver:''}</div>
+          <span class="badge b-warn" style="margin-top:3px">PRODUCCION</span>
+        </div>
+        <div style="font-size:10px;color:var(--muted2)">Sin ubicacion<br>en stock</div>
+      </div>
+    </div>`;
+  }
+  // Sin stock pero en colectas
+  for(const c of cn.slice(0,3)){
+    html+=`<div style="background:var(--card);border:1px solid var(--border2);border-radius:6px;padding:10px 14px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div class="mono" style="font-size:12px;font-weight:700">${hv(c.vin,q)}</div>
+          <span class="badge b-muted" style="margin-top:3px">EN PLAYA SIN STOCK</span>
+        </div>
+        <div style="font-size:20px;font-weight:800;color:var(--warn);font-family:var(--mono)">${c.box}</div>
+      </div>
+    </div>`;
+  }
   el.innerHTML=html;
 }
 
@@ -3131,7 +3190,7 @@ function actualizarEstadoBadge(){
 function colLoteRenderCheck(){
   const activo = S.loteActivo;
   const config = document.getElementById('col-lote-config');
-  const scan   = document.getElementById('col-lote-scan-wrap');
+  const scan   = document.getElementById('col-lote-activo');   // ID correcto en HTML
   if(config) config.style.display = activo ? 'none' : '';
   if(scan)   scan.style.display   = activo ? ''     : 'none';
   if(activo){
@@ -3172,7 +3231,7 @@ function colLoteAgregarVin(vin){
   if(dupL){
     const msg = document.getElementById('col-lote-conflict-msg');
     if(msg) msg.textContent = `El VIN ${vin} ya fue escaneado (pos. ${S.loteActivo.vins.indexOf(dupL)+1})`;
-    const box = document.getElementById('col-lote-conflict-box');
+    const box = document.getElementById('col-lote-conflict');
     if(box) box.style.display = '';
     window.colPendingConflict = vin;
     return;
@@ -3182,7 +3241,7 @@ function colLoteAgregarVin(vin){
   if(dupO){
     const msg = document.getElementById('col-lote-conflict-msg');
     if(msg) msg.textContent = `El VIN ${vin} ya fue colectado en "${dupO.box}". Confirmar para actualizar.`;
-    const box = document.getElementById('col-lote-conflict-box');
+    const box = document.getElementById('col-lote-conflict');
     if(box) box.style.display = '';
     window.colPendingConflict = vin;
     return;
@@ -3205,13 +3264,13 @@ function colLoteConflictoConfirmar(){
     colLoteAgregarConfirmado(window.colPendingConflict);
     window.colPendingConflict = null;
   }
-  const box = document.getElementById('col-lote-conflict-box');
+  const box = document.getElementById('col-lote-conflict');
   if(box) box.style.display = 'none';
 }
 
 function colLoteConflictoRechazar(){
   window.colPendingConflict = null;
-  const box = document.getElementById('col-lote-conflict-box');
+  const box = document.getElementById('col-lote-conflict');
   if(box) box.style.display = 'none';
 }
 
