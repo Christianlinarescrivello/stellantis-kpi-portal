@@ -218,6 +218,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     <div style="margin-bottom:10px"><label class="lbl">Notas adicionales (opcional)</label><input id="foto-notas" class="inp" placeholder="Ej: chapelona deteriorada, sin placa..." autocomplete="off"></div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="fotoCancelar()">Cancelar</button>
+      <button class="btn btn-secondary" onclick="fotoSinFoto()" style="color:var(--muted2)" title="Registrar sin foto - quedara pendiente de verificacion">Sin foto</button>
       <button id="foto-confirmar-btn" class="btn btn-primary" onclick="fotoConfirmar()" disabled>Confirmar con foto</button>
     </div>
   </div>
@@ -293,7 +294,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
       <span class="rol-badge rol-colector">COLECTOR</span>
-          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v4.5</span>
+          <span style="font-size:9px;color:var(--muted);letter-spacing:1px">v4.8</span>
       <div style="font-size:11px;color:var(--muted2)" id="col-operario-txt" onclick="openModal('modal-operario')" style="cursor:pointer">Toca para identificarte</div>
     </div>
   </div>
@@ -375,7 +376,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
             <div style="font-size:9px;color:var(--muted)">VINs</div>
           </div>
         </div>
-        <input id="col-lote-scan" class="inp inp-mono" placeholder="Escanear VIN..." style="font-size:18px;padding:14px;margin-bottom:8px" oninput="colLoteScan(this.value)" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false">
+        <input id="col-lote-scan" class="inp inp-mono" placeholder="Escanear VIN..." maxlength="18" style="font-size:18px;padding:14px;margin-bottom:8px" oninput="colLoteScan(this.value)" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false">
         <div id="col-lote-conflict" style="display:none" class="conflict-box">
           <div style="color:var(--warn);font-weight:700;margin-bottom:6px">VIN DUPLICADO</div>
           <div id="col-lote-conflict-msg" style="font-size:12px;color:var(--muted2);margin-bottom:10px"></div>
@@ -410,7 +411,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
         <div style="font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase" id="col-sc-tipo"></div>
         <div class="touch-loc" id="col-sc-ubic">A001001</div>
         <div class="touch-exp">Esperado: <span class="touch-vin" id="col-sc-exp">VACIO</span></div>
-        <input id="col-sc-inp" class="inp touch-inp inp-mono" placeholder="Escanear VIN..." oninput="colScInput(this.value)" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" inputmode="none" style="margin-top:10px" onclick="this.removeAttribute('inputmode')" title="Toca para escribir manualmente">
+        <input id="col-sc-inp" class="inp touch-inp inp-mono" maxlength="18" placeholder="Escanear VIN..." oninput="colScInput(this.value)" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" inputmode="none" style="margin-top:10px" onclick="this.removeAttribute('inputmode')" title="Toca para escribir manualmente">
         <div id="col-sc-result" style="display:none" class="touch-result"></div>
       </div>
       <!-- Botón Esta OK  -  aparece solo cuando hay VIN esperado -->
@@ -491,7 +492,7 @@ tr:hover td{background:rgba(255,255,255,.015)}
     <div class="tb-right">
       <div class="tb-op" id="tb-op" onclick="openModal('modal-operario')">Sin identificar</div>
       <span class="rol-badge rol-admin" id="tb-rol-badge" style="display:none">ADMIN</span>
-      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v4.5</span>
+      <span style="font-size:9px;color:var(--muted);letter-spacing:1px;margin-left:2px" id="version-badge">v4.8</span>
       <button class="theme-toggle" onclick="abrirGestionarInv()" title="Gestionar inventario" id="btn-gestionar-inv" style="display:none">&#9881;</button>
       <button class="theme-toggle" onclick="toggleTheme()" title="Modo claro/oscuro" id="theme-btn">&#9788;</button>
       <button class="theme-toggle" onclick="solicitarNotificaciones()" id="notif-btn" title="Activar notificaciones push" style="display:none">&#9993;</button>
@@ -1440,6 +1441,34 @@ async function fotoConfirmar(){
     btn.disabled=false; btn.textContent='Confirmar con foto';
     toast('Error al guardar: '+e.message,'ko');
   }
+}
+
+function fotoSinFoto(){
+  // Registrar sin foto — queda como pendiente de verificacion
+  const vin = fotoVinPendiente;
+  const ctx = fotoCallbackCtx;
+  if(!vin){ closeModal('modal-foto'); return; }
+
+  // Guardar observacion sin foto
+  const obs = {
+    inventario_id: S.invId, vin, tipo:'VERIFICAR FISICO',
+    texto: 'VIN DESCONOCIDO registrado sin foto. Requiere verificacion fisica.',
+    operario: S.operario||'', creado_en: new Date().toISOString()
+  };
+  S.observaciones.unshift(obs);
+  try{ localStorage.setItem('st_obs_'+S.invId, JSON.stringify(S.observaciones)); }catch(e){}
+  queueOrSend('obs', obs);
+  const b = document.getElementById('badge-obs'); if(b) b.textContent = S.observaciones.length;
+
+  closeModal('modal-foto');
+  toast('Registrado sin foto - quedara en VINs Pendientes','warn');
+
+  // Continuar con el flujo
+  if(ctx==='lote') loteAgregarConfirmado(vin);
+  else if(ctx==='col-lote'){ if(typeof colLoteAgregarConfirmado==='function') colLoteAgregarConfirmado(vin); }
+  else if(ctx==='pq') pqContinuarConFoto(vin);
+
+  fotoVinPendiente=null; fotoCallbackCtx=null; fotoBase64=null;
 }
 
 function fotoCancelar(){
@@ -3226,6 +3255,7 @@ function colLoteIniciar(){
 
 function colLoteScan(val){
   if(val.length < 6) return;
+  if(val.length < 17) return; // esperar VIN completo del scanner
   const vin = val.trim().slice(0,17).toUpperCase();
   const inp = document.getElementById('col-lote-scan');
   if(inp) inp.value = '';
@@ -3432,6 +3462,7 @@ function colScMove(dir){
 
 function colScInput(val){
   if(val.length < 6) return;
+  if(val.length < 17) return; // esperar VIN completo del scanner
   const vin = val.trim().slice(0,17).toUpperCase();
   const inp = document.getElementById('col-sc-inp');
   if(inp){ inp.value = ''; if(isTouchDevice()) inp.blur(); }
@@ -3548,11 +3579,14 @@ function colScRestaurarPosicion(){
 }
 
 function colSetDir(dir){
+  if(dir===undefined) dir = colSc.dir==='asc'?'desc':'asc';
   colSc.dir = dir;
+  const btn = document.getElementById('col-btn-dir');
+  if(btn) btn.textContent = dir==='asc'?'Asc':'Desc';
   const asc = document.getElementById('col-sc-dir-asc');
-  const desc= document.getElementById('col-sc-dir-desc');
-  if(asc) asc.className = 'btn btn-sm ' + (dir==='asc'?'btn-primary':'btn-secondary');
-  if(desc)desc.className = 'btn btn-sm ' + (dir==='desc'?'btn-primary':'btn-secondary');
+  const dsc = document.getElementById('col-sc-dir-desc');
+  if(asc) asc.className = 'btn btn-sm '+(dir==='asc'?'btn-primary':'btn-secondary');
+  if(dsc) dsc.className = 'btn btn-sm '+(dir==='desc'?'btn-primary':'btn-secondary');
   colScReconstruirBoxes();
 }
 
